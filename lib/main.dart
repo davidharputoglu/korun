@@ -60,7 +60,6 @@ class MainFileManagerScreen extends StatefulWidget {
 
   const MainFileManagerScreen({
     super.key,
-    required self,
     required this.onThemeChanged,
     required this.onLanguageChanged,
   });
@@ -175,7 +174,9 @@ class FilePanelWidget extends StatelessWidget {
     final dir = Directory(currentPath);
     List<FileSystemEntity> entities = [];
     if (dir.existsSync()) {
-      entities = dir.listSync();
+      try {
+        entities = dir.listSync();
+      } catch (_) {}
     }
 
     return Column(
@@ -205,7 +206,7 @@ class FilePanelWidget extends StatelessWidget {
             ],
           ),
         ),
-        // Liste des fichiers et arborescence
+        // Liste des fichiers
         Expanded(
           child: ListView.builder(
             itemCount: entities.length,
@@ -215,7 +216,7 @@ class FilePanelWidget extends StatelessWidget {
               return ListTile(
                 leading: Icon(
                   isDir ? Icons.folder : Icons.insert_drive_file,
-                  color: isDir ? Colors.amber : Colors.blueLight,
+                  color: isDir ? Colors.amber : Colors.lightBlue,
                 ),
                 title: Text(p.basename(entity.path)),
                 onTap: () {
@@ -280,7 +281,7 @@ class PreviewPanelWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           width: double.infinity,
-          color: Theme.of(context).colorScheme.surfaceVariant,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Text(
             'Aperçu : ${p.basename(filePath!)}',
             style: const TextStyle(fontWeight: FontWeight.bold),
