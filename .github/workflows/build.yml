@@ -15,7 +15,6 @@ jobs:
       - name: Configurer Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.x'
           channel: 'stable'
 
       - name: Installer les dépendances système Linux
@@ -63,7 +62,6 @@ jobs:
       - name: Configurer Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.x'
           channel: 'stable'
 
       - name: Installer Inno Setup
@@ -85,7 +83,7 @@ jobs:
           [Setup]
           AppName=Körün
           AppVersion=0.3.0
-          DefaultDirName={autopf}\Korun
+          DefaultDirName={autopf}\Körün
           DefaultGroupName=Körün
           UninstallDisplayIcon={app}\korun.exe
           Compression=lzma2
