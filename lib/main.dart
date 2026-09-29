@@ -88,7 +88,7 @@ class _MainFileManagerScreenState extends State<MainFileManagerScreen> {
           padding: const EdgeInsets.all(6.0),
           child: Image.asset('assets/icon.png', errorBuilder: (context, error, stackTrace) => const Icon(Icons.folder_special, color: Colors.amber)),
         ),
-        title: Text('Körün v0.3.1 — ${widget.currentLang}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text('Körün v0.3.2 — ${widget.currentLang}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         actions: [
           IconButton(
             icon: Icon(_showTrees ? Icons.account_tree : Icons.account_tree_outlined),
@@ -318,7 +318,6 @@ class _TimestampDialogState extends State<TimestampDialog> {
           Text('Modification : ${_mtime.toLocal()}'),
           ElevatedButton(
             onPressed: () async {
-              // Simulation de sélection rapide de date
               setState(() => _mtime = DateTime.now());
             },
             child: const Text('Mettre à l\'heure actuelle (Modification)'),
@@ -341,7 +340,8 @@ class _TimestampDialogState extends State<TimestampDialog> {
         ElevatedButton(
           onPressed: () {
             try {
-              File(widget.widget.filePath).setLastModifiedSync(_mtime);
+              // Correction ici : utilisation directe de widget.filePath
+              File(widget.filePath).setLastModifiedSync(_mtime);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(widget.lang == 'FR' ? 'Horodatages mis à jour avec succès !' : 'Timestamps updated successfully!')),
