@@ -1,4 +1,4 @@
-name: Build and Release Körün (Full & Portable)
+name: Build and Release Körün (v0.1.8)
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
 
       - name: Créer l'archive Linux Portable (.tar.gz)
         run: |
-          tar -czvf korun-v0.1.7-linux-portable.tar.gz -C dist/korun .
+          tar -czvf korun-v0.1.8-linux-portable.tar.gz -C dist/korun .
 
       - name: Structurer le paquet Linux (.deb et .rpm)
         run: |
@@ -57,7 +57,7 @@ jobs:
         run: |
           fpm -s dir -t deb \
             -n korun \
-            -v 0.1.7 \
+            -v 0.1.8 \
             --architecture amd64 \
             --description "Gestionnaire de fichiers double panneau" \
             --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
@@ -67,7 +67,7 @@ jobs:
         run: |
           fpm -s dir -t rpm \
             -n korun \
-            -v 0.1.7 \
+            -v 0.1.8 \
             --architecture x86_64 \
             --description "Gestionnaire de fichiers double panneau" \
             --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
@@ -77,9 +77,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            korun_0.1.7_amd64.deb
-            korun-0.1.7-1.x86_64.rpm
-            korun-v0.1.7-linux-portable.tar.gz
+            korun_0.1.8_amd64.deb
+            korun-0.1.8-1.x86_64.rpm
+            korun-v0.1.8-linux-portable.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -102,7 +102,7 @@ jobs:
 
       - name: Compiler la version Portable Windows (.exe unique)
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.7-Windows-Portable" src/main.py
+          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.8-Windows-Portable" src/main.py
 
       - name: Compiler le dossier d'installation Windows
         run: |
@@ -114,14 +114,14 @@ jobs:
           $issContent = @"
           [Setup]
           AppName=Körün
-          AppVersion=0.1.7
+          AppVersion=0.1.8
           DefaultDirName={autopf}\Korun
           DefaultGroupName=Körün
           UninstallDisplayIcon={app}\Korun.exe
           Compression=lzma2
           SolidCompression=yes
           OutputDir=dist
-          OutputBaseFilename=Korun-v0.1.7-Windows-Setup
+          OutputBaseFilename=Korun-v0.1.8-Windows-Setup
 
           [Files]
           Source: "dist\Korun\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
@@ -136,11 +136,11 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
 
-      - name: Uploader les fichiers Windows (Setup + Portable) vers GitHub Releases
+      - name: Uploader les fichiers Windows vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/Korun-v0.1.7-Windows-Portable.exe
-            dist/Korun-v0.1.7-Windows-Setup.exe
+            dist/Korun-v0.1.8-Windows-Portable.exe
+            dist/Korun-v0.1.8-Windows-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
