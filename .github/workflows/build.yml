@@ -1,4 +1,4 @@
-name: Build and Release Körün (v0.1.9)
+name: Build and Release Körün (Flutter v0.3.0)
 
 on:
   push:
@@ -6,65 +6,53 @@ on:
       - 'v*'
 
 jobs:
-  build-linux:
+  build-linux-and-android:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Configurer Python
-        uses: actions/setup-python@v5
+      - name: Configurer Java pour Android
+        uses: actions/setup-java@v4
         with:
-          python-version: '3.11'
+          distribution: 'zulu'
+          java-version: '17'
 
-      - name: Installer les dépendances système
+      - name: Configurer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.x'
+          channel: 'stable'
+
+      - name: Installer les dépendances système Linux
         run: |
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm libreoffice imagemagick
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm clang cmake ninja-build pkg-config libgtk-3-dev
           sudo gem install --no-document fpm
 
-      - name: Installer les dépendances Python
-        run: |
-          python -m pip install --upgrade pip
-          pip install PyInstaller PyQt6 Pillow PyMuPDF python-docx openpyxl odfpy requests
+      - name: Télécharger les paquets Flutter
+        run: flutter pub get
 
-      - name: Compiler avec PyInstaller
-        run: |
-          pyinstaller --noconfirm --onedir --windowed --icon=assets/icon.png --name "korun" src/main.py
+      - name: Compiler le build Linux
+        run: flutter build linux --release
 
-      - name: Structurer le paquet Linux (.deb et .rpm)
+      - name: Créer les paquets Linux (.rpm, .deb, .tar.gz)
         run: |
           mkdir -p package_root/usr/bin
-          mkdir -p package_root/usr/share/applications
-          mkdir -p package_root/usr/share/icons/hicolor/256x256/apps
           mkdir -p package_root/opt/korun
-          cp -r dist/korun/* package_root/opt/korun/
-          cp assets/icon.png package_root/usr/share/icons/hicolor/256x256/apps/korun.png
+          cp -r build/linux/x64/release/bundle/* package_root/opt/korun/
           ln -s /opt/korun/korun package_root/usr/bin/korun
-          cat <<EOT > package_root/usr/share/applications/korun.desktop
-          [Desktop Entry]
-          Name=Körün
-          Comment=Gestionnaire de fichiers double panneau avec aperçu Office/PDF
-          Exec=/usr/bin/korun
-          Icon=korun
-          Terminal=false
-          Type=Application
-          Categories=Utility;FileManager;
-          EOT
+          tar -czvf korun-v0.3.0-linux-portable.tar.gz -C build/linux/x64/release/bundle .
+          fpm -s dir -t deb -n korun -v 0.3.0 --architecture amd64 -C package_root .
+          fpm -s dir -t rpm -n korun -v 0.3.0 --architecture x86_64 -C package_root .
 
-      - name: Générer les paquets Linux (.deb, .rpm, .tar.gz)
-        run: |
-          tar -czvf korun-v0.1.9-linux-portable.tar.gz -C dist/korun .
-          fpm -s dir -t deb -n korun -v 0.1.9 --architecture amd64 -C package_root .
-          fpm -s dir -t rpm -n korun -v 0.1.9 --architecture x86_64 -C package_root .
-
-      - name: Uploader tous les formats Linux vers GitHub Releases
+      - name: Uploader les paquets Linux vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            korun_0.1.9_amd64.deb
-            korun-0.1.9-1.x86_64.rpm
-            korun-v0.1.9-linux-portable.tar.gz
+            korun_0.3.0_amd64.deb
+            korun-0.3.0-1.x86_64.rpm
+            korun-v0.3.0-linux-portable.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -74,59 +62,54 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Configurer Python
-        uses: actions/setup-python@v5
+      - name: Configurer Flutter
+        uses: subosito/flutter-action@v2
         with:
-          python-version: '3.11'
+          flutter-version: '3.19.x'
+          channel: 'stable'
 
-      - name: Installer les dépendances Python et Inno Setup
-        run: |
-          python -m pip install --upgrade pip
-          pip install PyInstaller PyQt6 Pillow PyMuPDF python-docx openpyxl odfpy requests
-          choco install innosetup -y
+      - name: Installer Inno Setup
+        run: choco install innosetup -y
 
-      - name: Compiler la version Portable Windows (.exe unique)
-        run: |
-          pyinstaller --noconfirm --onefile --windowed --icon=assets/icon.ico --name "Korun-v0.1.9-Windows-Portable" src/main.py
+      - name: Télécharger les paquets Flutter
+        run: flutter pub get
 
-      - name: Compiler le dossier d'installation Windows
-        run: |
-          pyinstaller --noconfirm --onedir --windowed --icon=assets/icon.ico --name "Korun" src/main.py
+      - name: Compiler le build Windows
+        run: flutter build windows --release
 
-      - name: Générer le script d'installation Inno Setup (.iss)
+      - name: Créer l'archive Windows Portable
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath Korun-v0.3.0-Windows-Portable.zip
+
+      - name: Générer l'installeur Windows Setup.exe avec Inno Setup
         shell: powershell
         run: |
           $issContent = @"
           [Setup]
           AppName=Körün
-          AppVersion=0.1.9
+          AppVersion=0.3.0
           DefaultDirName={autopf}\Korun
           DefaultGroupName=Körün
-          SetupIconFile=assets\icon.ico
-          UninstallDisplayIcon={app}\Korun.exe
+          UninstallDisplayIcon={app}\korun.exe
           Compression=lzma2
           SolidCompression=yes
           OutputDir=dist
-          OutputBaseFilename=Korun-v0.1.9-Windows-Setup
+          OutputBaseFilename=Korun-v0.3.0-Windows-Setup
 
           [Files]
-          Source: "dist\Korun\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
           [Icons]
-          Name: "{autoprograms}\Körün"; Filename: "{app}\Korun.exe"; IconFilename: "{app}\assets\icon.ico"
-          Name: "{autodesktop}\Körün"; Filename: "{app}\Korun.exe"; IconFilename: "{app}\assets\icon.ico"
+          Name: "{autoprograms}\Körün"; Filename: "{app}\korun.exe"
+          Name: "{autodesktop}\Körün"; Filename: "{app}\korun.exe"
           "@
           Set-Content -Path "setup.iss" -Value $issContent
-
-      - name: Compiler l'installeur Windows Setup.exe
-        run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
 
       - name: Uploader les fichiers Windows vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/Korun-v0.1.9-Windows-Portable.exe
-            dist/Korun-v0.1.9-Windows-Setup.exe
+            Korun-v0.3.0-Windows-Portable.zip
+            dist/Korun-v0.3.0-Windows-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
