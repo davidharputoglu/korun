@@ -17,10 +17,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Installer les dépendances système (FPM et Ruby)
+      - name: Installer les dépendances système
         run: |
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm libreoffice
           sudo gem install --no-document fpm
 
       - name: Installer les dépendances Python
@@ -53,7 +53,7 @@ jobs:
         run: |
           fpm -s dir -t deb \
             -n korun \
-            -v 0.1.3 \
+            -v 0.1.4 \
             --architecture amd64 \
             --description "Gestionnaire de fichiers double panneau avec aperçu Office/PDF" \
             --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
@@ -63,7 +63,7 @@ jobs:
         run: |
           fpm -s dir -t rpm \
             -n korun \
-            -v 0.1.3 \
+            -v 0.1.4 \
             --architecture x86_64 \
             --description "Gestionnaire de fichiers double panneau avec aperçu Office/PDF" \
             --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
@@ -73,8 +73,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            korun_0.1.3_amd64.deb
-            korun-0.1.3-1.x86_64.rpm
+            korun_0.1.4_amd64.deb
+            korun-0.1.4-1.x86_64.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -96,11 +96,11 @@ jobs:
 
       - name: Compiler l'exécutable Windows
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.3-Windows" src/main.py
+          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.4-Windows" src/main.py
 
       - name: Uploader l'exécutable Windows vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Korun-v0.1.3-Windows.exe
+          files: dist/Korun-v0.1.4-Windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

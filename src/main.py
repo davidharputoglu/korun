@@ -4,7 +4,7 @@
 """
 Körün — Cross-platform dual-pane file manager
 Author: David HARPUTOGLU
-Version: 0.1.3
+Version: 0.1.4
 License: MIT
 """
 
@@ -39,7 +39,7 @@ try:
 except ImportError:
     HAS_OPENPYXL = False
 
-CURRENT_VERSION = "v0.1.3"
+CURRENT_VERSION = "v0.1.4"
 GITHUB_REPO = "davidharputoglu/korun"
 
 TRANSLATIONS = {
@@ -51,7 +51,19 @@ TRANSLATIONS = {
         "about": "ℹ À propos",
         "update_available": "Mise à jour disponible",
         "update_msg": "Une nouvelle version ({}) est disponible !\n\nSouhaitez-vous ouvrir la page de téléchargement ?",
-        "lang_label": "Langue :"
+        "lang_label": "Langue :",
+        "rtl": False
+    },
+    "AR": {
+        "title": "Körün — مدير الملفات",
+        "preview_title": "معاينة الملف",
+        "preview_empty": "حدد ملفًا لفرض معاينته.",
+        "toggle_preview": "⇄ تبديل لوحة المعاينة",
+        "about": "ℹ حول البرنامج",
+        "update_available": "تحديث متاح",
+        "update_msg": "يتوفر إصدار جديد ({})!\n\nهل ترغب في فتح صفحة التنزيل؟",
+        "lang_label": "اللغة:",
+        "rtl": True
     },
     "EN": {
         "title": "Körün — File Manager",
@@ -61,7 +73,8 @@ TRANSLATIONS = {
         "about": "ℹ About",
         "update_available": "Update Available",
         "update_msg": "A new version ({}) is available!\n\nWould you like to open the release page?",
-        "lang_label": "Language:"
+        "lang_label": "Language:",
+        "rtl": False
     },
     "TR": {
         "title": "Körün — Dosya Yöneticisi",
@@ -71,7 +84,8 @@ TRANSLATIONS = {
         "about": "ℹ Hakkında",
         "update_available": "Güncelleme Mevcut",
         "update_msg": "Yeni bir sürüm ({}) mevcut!\n\nİndirme sayfasını açmak ister misiniz?",
-        "lang_label": "Dil:"
+        "lang_label": "Dil:",
+        "rtl": False
     },
     "AZ": {
         "title": "Körün — Fayl Meneceri",
@@ -81,7 +95,8 @@ TRANSLATIONS = {
         "about": "ℹ Haqqında",
         "update_available": "Yenilənmə Var",
         "update_msg": "Yeni versiya ({}) mövcuddur!\n\nYükləmə səhifəsini açmaq istəyirsiniz?",
-        "lang_label": "Dil:"
+        "lang_label": "Dil:",
+        "rtl": False
     },
     "KK": {
         "title": "Körün — Файл менеджері",
@@ -91,7 +106,8 @@ TRANSLATIONS = {
         "about": "ℹ Тұралы",
         "update_available": "Жаңарту бар",
         "update_msg": "Жаңа нұсқа ({}) қолжетімді!\n\nЖүктеу бетін ашасыз ба?",
-        "lang_label": "Тіл:"
+        "lang_label": "Тіл:",
+        "rtl": False
     },
     "UZ": {
         "title": "Körün — Fayl Menejeri",
@@ -101,7 +117,30 @@ TRANSLATIONS = {
         "about": "ℹ Haqida",
         "update_available": "Yangilanish mavjud",
         "update_msg": "Yangi versiya ({}) mavjud!\n\nYuklab olish sahifasini ochasizmi?",
-        "lang_label": "Til:"
+        "lang_label": "Til:",
+        "rtl": False
+    },
+    "TK": {
+        "title": "Körün — Faýl Dolandyryjysy",
+        "preview_title": "Faýly Synlamaq",
+        "preview_empty": "Synlamak üçin faýl saýlaň.",
+        "toggle_preview": "⇄ Paneli Çalşyrmak",
+        "about": "ℹ Barada",
+        "update_available": "Täzelenme Bar",
+        "update_msg": "Täze wersiýa ({}) elýeterli!\n\nÝükləmə sahypasyny açmak ısleýärsiňizmi?",
+        "lang_label": "Dil:",
+        "rtl": False
+    },
+    "KY": {
+        "title": "Körün — Файл менеджери",
+        "preview_title": "Файлды алдын ала көрүү",
+        "preview_empty": "Көрүү үчүн файлды тандаңыз.",
+        "toggle_preview": "⇄ Панелди алмаштыруу",
+        "about": "ℹ Жөнүндө",
+        "update_available": "Жаңыртуу бар",
+        "update_msg": "Жаңы версиясы ({}) бар!\n\nЖүктөө баракчасын ачасызбы?",
+        "lang_label": "Тил:",
+        "rtl": False
     },
     "IT": {
         "title": "Körün — Gestore File",
@@ -111,7 +150,8 @@ TRANSLATIONS = {
         "about": "ℹ Informazioni",
         "update_available": "Aggiornamento Disponibile",
         "update_msg": "È disponibile una nuova versione ({})!\n\nVuoi aprire la pagina di download?",
-        "lang_label": "Lingua:"
+        "lang_label": "Lingua:",
+        "rtl": False
     },
     "ES": {
         "title": "Körün — Gestor de Archivos",
@@ -121,7 +161,8 @@ TRANSLATIONS = {
         "about": "ℹ Acerca de",
         "update_available": "Actualización Disponible",
         "update_msg": "¡Una nueva versión ({}) está disponible!\n\n¿Desea abrir la página de descarga?",
-        "lang_label": "Idioma:"
+        "lang_label": "Idioma:",
+        "rtl": False
     },
     "PT": {
         "title": "Körün — Gerenciador de Arquivos",
@@ -131,28 +172,29 @@ TRANSLATIONS = {
         "about": "ℹ Sobre",
         "update_available": "Atualização Disponível",
         "update_msg": "Uma nova versão ({}) está disponível!\n\nDeseja abrir a página de download?",
-        "lang_label": "Idioma:"
+        "lang_label": "Idioma:",
+        "rtl": False
     }
 }
 
 MODERN_STYLE = """
-QMainWindow { background-color: #181825; }
-QWidget { color: #cdd6f4; font-family: "Inter", "Segoe UI", "Ubuntu", sans-serif; font-size: 13px; }
-QSplitter::handle { background-color: #313244; width: 2px; }
+QMainWindow { background-color: #11111b; }
+QWidget { color: #cdd6f4; font-family: "Segoe UI", "Ubuntu", sans-serif; font-size: 13px; }
+QSplitter::handle { background-color: #1e1e2e; width: 3px; }
 QSplitter::handle:hover { background-color: #89b4fa; }
-QTreeView { background-color: #1e1e2e; border: 1px solid #313244; border-radius: 8px; padding: 4px; }
-QTreeView::item { padding: 6px; border-radius: 4px; }
+QTreeView { background-color: #181825; border: 1px solid #313244; border-radius: 8px; padding: 6px; outline: none; }
+QTreeView::item { padding: 8px; border-radius: 4px; }
 QTreeView::item:hover { background-color: #313244; }
 QTreeView::item:selected { background-color: #45475a; color: #89b4fa; font-weight: bold; }
-QHeaderView::section { background-color: #1e1e2e; color: #a6adc8; padding: 6px; border: none; border-bottom: 2px solid #313244; font-weight: bold; }
-QLineEdit { background-color: #1e1e2e; border: 1px solid #313244; border-radius: 6px; padding: 6px; color: #89b4fa; font-family: "Monospace"; }
-QFrame#PreviewContainer { background-color: #1e1e2e; border: 1px solid #313244; border-radius: 8px; padding: 12px; }
-QLabel#PreviewTitle { font-size: 14px; font-weight: bold; color: #89b4fa; padding-bottom: 8px; border-bottom: 1px solid #313244; }
-QTextEdit#PreviewText { background-color: #181825; border: 1px solid #313244; border-radius: 6px; color: #a6adc8; font-family: "JetBrains Mono", "Consolas", monospace; font-size: 12px; }
-QToolBar { background-color: #181825; border-bottom: 1px solid #313244; spacing: 8px; padding: 6px; }
-QPushButton { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; border-radius: 6px; padding: 6px 14px; font-weight: 500; }
+QHeaderView::section { background-color: #181825; color: #a6adc8; padding: 8px; border: none; border-bottom: 2px solid #313244; font-weight: bold; }
+QLineEdit { background-color: #181825; border: 1px solid #313244; border-radius: 6px; padding: 8px; color: #89b4fa; font-family: "Monospace"; font-size: 12px; }
+QFrame#PreviewContainer { background-color: #181825; border: 1px solid #313244; border-radius: 8px; padding: 14px; }
+QLabel#PreviewTitle { font-size: 15px; font-weight: bold; color: #89b4fa; padding-bottom: 10px; border-bottom: 1px solid #313244; }
+QTextEdit#PreviewText { background-color: #11111b; border: 1px solid #313244; border-radius: 6px; color: #a6adc8; font-family: "Consolas", "Monospace"; font-size: 12px; padding: 8px; }
+QToolBar { background-color: #181825; border-bottom: 1px solid #313244; spacing: 10px; padding: 8px; }
+QPushButton { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; border-radius: 6px; padding: 8px 16px; font-weight: 600; }
 QPushButton:hover { background-color: #45475a; border-color: #89b4fa; color: #ffffff; }
-QComboBox { background-color: #313244; border: 1px solid #45475a; border-radius: 6px; padding: 4px 8px; color: #cdd6f4; }
+QComboBox { background-color: #313244; border: 1px solid #45475a; border-radius: 6px; padding: 6px 12px; color: #cdd6f4; font-weight: bold; }
 """
 
 class UpdateCheckerThread(QThread):
@@ -242,7 +284,7 @@ class PreviewWidget(QFrame):
 
         ext = os.path.splitext(file_path)[1].lower()
 
-        # Anciens formats Office (.doc, .xls, .ppt, .rtf) via LibreOffice headless
+        # Office binaire (.doc, .xls, .ppt, .rtf) via LibreOffice
         if ext in ['.doc', '.xls', '.ppt', '.rtf']:
             try:
                 temp_dir = tempfile.gettempdir()
@@ -270,7 +312,7 @@ class PreviewWidget(QFrame):
                 self.stack.setCurrentIndex(1)
                 return
 
-        # Rendu visuel réel PDF
+        # Rendu PDF
         if ext == '.pdf' and HAS_FITZ:
             try:
                 doc = fitz.open(file_path)
@@ -285,7 +327,7 @@ class PreviewWidget(QFrame):
             except Exception:
                 pass
 
-        # Word moderne (.docx)
+        # Word (.docx)
         if ext == '.docx' and HAS_DOCX:
             try:
                 doc = docx.Document(file_path)
@@ -296,7 +338,7 @@ class PreviewWidget(QFrame):
             except Exception:
                 pass
 
-        # Excel moderne (.xlsx)
+        # Excel (.xlsx)
         if ext == '.xlsx' and HAS_OPENPYXL:
             try:
                 wb = openpyxl.load_workbook(file_path, data_only=True)
@@ -312,7 +354,7 @@ class PreviewWidget(QFrame):
             except Exception:
                 pass
 
-        # Fichiers texte brut
+        # Fichiers texte
         if ext in ['.txt', '.md', '.py', '.json', '.xml', '.html', '.css', '.js', '.sh', '.ini', '.conf']:
             try:
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -378,7 +420,7 @@ class KorunApp(QMainWindow):
         self.toolbar.addWidget(self.lbl_lang)
 
         self.combo_lang = QComboBox()
-        self.combo_lang.addItems(["FR", "EN", "TR", "AZ", "KK", "UZ", "IT", "ES", "PT"])
+        self.combo_lang.addItems(["FR", "AR", "EN", "TR", "AZ", "KK", "UZ", "TK", "KY", "IT", "ES", "PT"])
         self.combo_lang.currentTextChanged.connect(self.change_language)
         self.toolbar.addWidget(self.combo_lang)
 
@@ -400,6 +442,12 @@ class KorunApp(QMainWindow):
         self.btn_toggle_preview.setText(t["toggle_preview"])
         self.btn_about.setText(t["about"])
         self.lbl_lang.setText(t["lang_label"])
+
+        # Orientation RTL (Droite à gauche) pour l'Arabe
+        if t.get("rtl", False):
+            self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        else:
+            self.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
     def toggle_preview_position(self):
         if self.main_splitter.indexOf(self.preview) == 1:
