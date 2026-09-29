@@ -2,24 +2,26 @@
 # -*- coding: utf-8 -*-
 
 """
-Körün — Cross-platform dual-pane file manager
+Körün — Portable dual-pane file manager with sidebar tree and theme manager
 Author: David HARPUTOGLU
-Version: 0.1.5
+Version: 0.1.6
 License: MIT
 """
 
 import sys
 import os
+import json
 import subprocess
 import tempfile
 import requests
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QTreeView, QSplitter, QLabel, QPushButton, QToolBar, QMessageBox,
-    QTextEdit, QStackedWidget, QFrame, QHeaderView, QComboBox, QLineEdit
+    QTextEdit, QStackedWidget, QFrame, QHeaderView, QComboBox, QLineEdit,
+    QDialog, QFormLayout, QCheckBox, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QDir, QSize, QThread, pyqtSignal, QModelIndex
-from PyQt6.QtGui import QPixmap, QFileSystemModel, QIcon
+from PyQt6.QtGui import QPixmap, QFileSystemModel
 
 try:
     import fitz  # PyMuPDF
@@ -39,200 +41,198 @@ try:
 except ImportError:
     HAS_OPENPYXL = False
 
-CURRENT_VERSION = "v0.1.5"
+CURRENT_VERSION = "v0.1.6"
 GITHUB_REPO = "davidharputoglu/korun"
+
+# Configuration portable locale
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(APP_DIR, "config.json")
+
+DEFAULT_CONFIG = {
+    "language": "FR",
+    "theme": "Catppuccin Macchiato",
+    "show_tree": True,
+    "auto_check_updates": True
+}
+
+THEMES = {
+    "Catppuccin Macchiato": """
+        QMainWindow, QDialog { background-color: #1e1e2e; }
+        QWidget { color: #cdd6f4; font-family: "Segoe UI", "Ubuntu", sans-serif; font-size: 13px; }
+        QSplitter::handle { background-color: #313244; width: 3px; }
+        QTreeView { background-color: #181825; border: 1px solid #313244; border-radius: 6px; color: #cdd6f4; outline: none; }
+        QTreeView::item:hover { background-color: #313244; }
+        QTreeView::item:selected { background-color: #89b4fa; color: #11111b; font-weight: bold; }
+        QHeaderView::section { background-color: #181825; color: #a6adc8; border: none; border-bottom: 2px solid #313244; padding: 6px; font-weight: bold; }
+        QLineEdit { background-color: #181825; border: 1px solid #313244; border-radius: 6px; padding: 6px; color: #89b4fa; font-weight: bold; }
+        QFrame#PreviewContainer { background-color: #181825; border: 1px solid #313244; border-radius: 6px; padding: 10px; }
+        QTextEdit#PreviewText { background-color: #ffffff; color: #111111; border: 1px solid #cbd5e1; border-radius: 6px; font-family: "Consolas", monospace; font-size: 13px; padding: 8px; }
+        QToolBar { background-color: #1e1e2e; border-bottom: 1px solid #313244; spacing: 8px; padding: 6px; }
+        QPushButton { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; border-radius: 6px; padding: 6px 12px; font-weight: 600; }
+        QPushButton:hover { background-color: #89b4fa; color: #11111b; }
+        QComboBox { background-color: #313244; border: 1px solid #45475a; border-radius: 6px; padding: 4px 8px; color: #cdd6f4; }
+    """,
+    "Nord": """
+        QMainWindow, QDialog { background-color: #2e3440; }
+        QWidget { color: #eceff4; font-family: "Segoe UI", sans-serif; font-size: 13px; }
+        QSplitter::handle { background-color: #4c566a; width: 3px; }
+        QTreeView { background-color: #3b4252; border: 1px solid #4c566a; border-radius: 6px; color: #eceff4; }
+        QTreeView::item:hover { background-color: #434c5e; }
+        QTreeView::item:selected { background-color: #88c0d0; color: #2e3440; font-weight: bold; }
+        QHeaderView::section { background-color: #3b4252; color: #d8dee9; border: none; border-bottom: 2px solid #4c566a; padding: 6px; }
+        QLineEdit { background-color: #3b4252; border: 1px solid #4c566a; border-radius: 6px; padding: 6px; color: #88c0d0; font-weight: bold; }
+        QFrame#PreviewContainer { background-color: #3b4252; border: 1px solid #4c566a; border-radius: 6px; padding: 10px; }
+        QTextEdit#PreviewText { background-color: #ffffff; color: #2e3440; border: 1px solid #d8dee9; border-radius: 6px; font-family: "Consolas", monospace; font-size: 13px; }
+        QToolBar { background-color: #2e3440; border-bottom: 1px solid #4c566a; spacing: 8px; padding: 6px; }
+        QPushButton { background-color: #434c5e; color: #eceff4; border: 1px solid #4c566a; border-radius: 6px; padding: 6px 12px; }
+        QPushButton:hover { background-color: #88c0d0; color: #2e3440; }
+        QComboBox { background-color: #434c5e; border: 1px solid #4c566a; border-radius: 6px; padding: 4px 8px; color: #eceff4; }
+    """,
+    "VS Code Dark": """
+        QMainWindow, QDialog { background-color: #1e1e1e; }
+        QWidget { color: #cccccc; font-family: "Segoe UI", sans-serif; font-size: 13px; }
+        QSplitter::handle { background-color: #2d2d2d; width: 3px; }
+        QTreeView { background-color: #252526; border: 1px solid #3c3c3c; border-radius: 4px; color: #cccccc; }
+        QTreeView::item:hover { background-color: #2a2d2e; }
+        QTreeView::item:selected { background-color: #094771; color: #ffffff; font-weight: bold; }
+        QHeaderView::section { background-color: #252526; color: #858585; border: none; border-bottom: 2px solid #3c3c3c; padding: 6px; }
+        QLineEdit { background-color: #3c3c3c; border: 1px solid #555555; border-radius: 4px; padding: 6px; color: #9cdcfe; font-weight: bold; }
+        QFrame#PreviewContainer { background-color: #252526; border: 1px solid #3c3c3c; border-radius: 4px; padding: 10px; }
+        QTextEdit#PreviewText { background-color: #ffffff; color: #000000; border: 1px solid #cccccc; border-radius: 4px; font-family: "Consolas", monospace; font-size: 13px; }
+        QToolBar { background-color: #1e1e1e; border-bottom: 1px solid #2d2d2d; spacing: 8px; padding: 6px; }
+        QPushButton { background-color: #3c3c3c; color: #cccccc; border: 1px solid #555555; border-radius: 4px; padding: 6px 12px; }
+        QPushButton:hover { background-color: #0e639c; color: #ffffff; }
+        QComboBox { background-color: #3c3c3c; border: 1px solid #555555; border-radius: 4px; padding: 4px 8px; color: #cccccc; }
+    """,
+    "Clair Épuré": """
+        QMainWindow, QDialog { background-color: #f8fafc; }
+        QWidget { color: #0f172a; font-family: "Segoe UI", sans-serif; font-size: 13px; }
+        QSplitter::handle { background-color: #e2e8f0; width: 3px; }
+        QTreeView { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; }
+        QTreeView::item:hover { background-color: #f1f5f9; }
+        QTreeView::item:selected { background-color: #2563eb; color: #ffffff; font-weight: bold; }
+        QHeaderView::section { background-color: #f1f5f9; color: #475569; border: none; border-bottom: 2px solid #cbd5e1; padding: 6px; }
+        QLineEdit { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; color: #2563eb; font-weight: bold; }
+        QFrame#PreviewContainer { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; }
+        QTextEdit#PreviewText { background-color: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 6px; font-family: "Consolas", monospace; font-size: 13px; }
+        QToolBar { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; spacing: 8px; padding: 6px; }
+        QPushButton { background-color: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; }
+        QPushButton:hover { background-color: #2563eb; color: #ffffff; }
+        QComboBox { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; color: #0f172a; }
+    """
+}
 
 TRANSLATIONS = {
     "FR": {
-        "title": "Körün — Gestionnaire de fichiers",
+        "title": "Körün — Gestionnaire de fichiers Portable",
         "preview_title": "Aperçu du fichier",
         "preview_empty": "Sélectionnez un fichier pour afficher son aperçu.",
-        "toggle_preview": "⇄ Inverser l'aperçu",
-        "check_update": "🔄 Vérifier MAJ",
+        "toggle_preview": "⇄ Aperçu",
+        "settings": "⚙ Paramètres",
+        "check_update": "🔄 MAJ",
         "about": "ℹ À propos",
-        "update_available": "Mise à jour disponible",
-        "update_latest": "Vous utilisez déjà la dernière version ({}) !",
-        "update_msg": "Une nouvelle version ({}) est disponible !\n\nSouhaitez-vous ouvrir la page de téléchargement ?",
-        "lang_label": "Langue :",
         "up_dir": "⬆ Remonter",
-        "rtl": False
-    },
-    "AR": {
-        "title": "Körün — مدير الملفات",
-        "preview_title": "معاينة الملف",
-        "preview_empty": "حدد ملفًا لفرض معاينته.",
-        "toggle_preview": "⇄ تبديل لوحة المعاينة",
-        "check_update": "🔄 التحقق من التحديثات",
-        "about": "ℹ حول البرنامج",
-        "update_available": "تحديث متاح",
-        "update_latest": "أنت تستخدم أحدث إصدار ({}) بالفعل!",
-        "update_msg": "يتوفر إصدار جديد ({})!\n\nهل ترغب في فتح صفحة التنزيل؟",
-        "lang_label": "اللغة:",
-        "up_dir": "⬆ للأعلى",
-        "rtl": True
+        "tree_title": "Arborescence Système"
     },
     "EN": {
-        "title": "Körün — File Manager",
+        "title": "Körün — Portable File Manager",
         "preview_title": "File Preview",
         "preview_empty": "Select a file to preview its content.",
-        "toggle_preview": "⇄ Toggle Preview",
-        "check_update": "🔄 Check Updates",
+        "toggle_preview": "⇄ Preview",
+        "settings": "⚙ Settings",
+        "check_update": "🔄 Update",
         "about": "ℹ About",
-        "update_available": "Update Available",
-        "update_latest": "You are using the latest version ({})!",
-        "update_msg": "A new version ({}) is available!\n\nWould you like to open the release page?",
-        "lang_label": "Language:",
         "up_dir": "⬆ Up",
-        "rtl": False
+        "tree_title": "System Tree"
     },
     "TR": {
-        "title": "Körün — Dosya Yöneticisi",
+        "title": "Körün — Taşınabilir Dosya Yöneticisi",
         "preview_title": "Dosya Önizleme",
         "preview_empty": "Önizlemek için bir dosya seçin.",
-        "toggle_preview": "⇄ Önizleme Konumu",
-        "check_update": "🔄 Güncellemeleri Denetle",
+        "toggle_preview": "⇄ Önizleme",
+        "settings": "⚙ Ayarlar",
+        "check_update": "🔄 Güncelle",
         "about": "ℹ Hakkında",
-        "update_available": "Güncelleme Mevcut",
-        "update_latest": "Zaten en son sürümü ({}) kullanıyorsunuz!",
-        "update_msg": "Yeni bir sürüm ({}) mevcut!\n\nİndirme sayfasını açmak ister misiniz?",
-        "lang_label": "Dil:",
         "up_dir": "⬆ Yukarı",
-        "rtl": False
+        "tree_title": "Sistem Ağacı"
+    },
+    "AR": {
+        "title": "Körün — مدير الملفات المحمول",
+        "preview_title": "معاينة الملف",
+        "preview_empty": "حدد ملفًا لفرض معاينته.",
+        "toggle_preview": "⇄ المعاينة",
+        "settings": "⚙ الإعدادات",
+        "check_update": "🔄 التحديث",
+        "about": "ℹ حول",
+        "up_dir": "⬆ للأعلى",
+        "tree_title": "شجرة النظام"
     }
 }
 
-PROFESSIONAL_STYLE = """
-QMainWindow {
-    background-color: #12131c;
-}
-QWidget {
-    color: #ffffff;
-    font-family: "Segoe UI", "Ubuntu", sans-serif;
-    font-size: 13px;
-}
-QSplitter::handle {
-    background-color: #252836;
-    width: 3px;
-}
-QSplitter::handle:hover {
-    background-color: #3b82f6;
-}
-QTreeView {
-    background-color: #1a1c29;
-    border: 1px solid #2d3142;
-    border-radius: 6px;
-    padding: 4px;
-    outline: none;
-    color: #ffffff;
-}
-QTreeView::item {
-    padding: 6px 4px;
-    border-radius: 4px;
-}
-QTreeView::item:hover {
-    background-color: #252836;
-}
-QTreeView::item:selected {
-    background-color: #2563eb;
-    color: #ffffff;
-    font-weight: bold;
-}
-QHeaderView::section {
-    background-color: #1a1c29;
-    color: #94a3b8;
-    padding: 8px;
-    border: none;
-    border-bottom: 2px solid #2d3142;
-    font-weight: bold;
-}
-QLineEdit {
-    background-color: #1a1c29;
-    border: 1px solid #2d3142;
-    border-radius: 6px;
-    padding: 6px 10px;
-    color: #60a5fa;
-    font-family: "Consolas", "Monospace";
-    font-weight: bold;
-}
-QFrame#PreviewContainer {
-    background-color: #1a1c29;
-    border: 1px solid #2d3142;
-    border-radius: 6px;
-    padding: 12px;
-}
-QLabel#PreviewTitle {
-    font-size: 14px;
-    font-weight: bold;
-    color: #60a5fa;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #2d3142;
-}
-QTextEdit#PreviewText {
-    background-color: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    color: #0f172a;
-    font-family: "Consolas", "Monospace";
-    font-size: 13px;
-    padding: 10px;
-}
-QToolBar {
-    background-color: #12131c;
-    border-bottom: 1px solid #2d3142;
-    spacing: 8px;
-    padding: 6px;
-}
-QPushButton {
-    background-color: #252836;
-    color: #ffffff;
-    border: 1px solid #3b4252;
-    border-radius: 6px;
-    padding: 6px 14px;
-    font-weight: 600;
-}
-QPushButton:hover {
-    background-color: #3b82f6;
-    border-color: #60a5fa;
-    color: #ffffff;
-}
-QComboBox {
-    background-color: #252836;
-    border: 1px solid #3b4252;
-    border-radius: 6px;
-    padding: 5px 10px;
-    color: #ffffff;
-    font-weight: bold;
-}
-"""
-
-class UpdateCheckerThread(QThread):
-    update_signal = pyqtSignal(str, str, bool)
-
-    def __init__(self, manual_check=False):
-        super().__init__()
-        self.manual_check = manual_check
-
-    def run(self):
+def load_config():
+    if os.path.exists(CONFIG_FILE):
         try:
-            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-            res = requests.get(url, timeout=5)
-            if res.status_code == 200:
-                data = res.json()
-                latest_tag = data.get("tag_name", "")
-                html_url = data.get("html_url", "")
-                if latest_tag and latest_tag != CURRENT_VERSION:
-                    self.update_signal.emit(latest_tag, html_url, True)
-                else:
-                    if self.manual_check:
-                        self.update_signal.emit(CURRENT_VERSION, "", False)
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                return {**DEFAULT_CONFIG, **json.load(f)}
         except Exception:
             pass
+    return DEFAULT_CONFIG.copy()
+
+def save_config(config):
+    try:
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4)
+    except Exception:
+        pass
+
+class SettingsDialog(QDialog):
+    def __init__(self, config, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Paramètres — Körün")
+        self.setFixedWidth(380)
+        self.config = config.copy()
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        self.combo_lang = QComboBox()
+        self.combo_lang.addItems(["FR", "EN", "TR", "AR"])
+        self.combo_lang.setCurrentText(self.config["language"])
+        form.addRow("Langue / Language :", self.combo_lang)
+
+        self.combo_theme = QComboBox()
+        self.combo_theme.addItems(list(THEMES.keys()))
+        self.combo_theme.setCurrentText(self.config["theme"])
+        form.addRow("Thème visuel :", self.combo_theme)
+
+        self.chk_tree = QCheckBox("Afficher l'arborescence latérale")
+        self.chk_tree.setChecked(self.config["show_tree"])
+        form.addRow(self.chk_tree)
+
+        self.chk_update = QCheckBox("Vérifier les MAJ au démarrage")
+        self.chk_update.setChecked(self.config["auto_check_updates"])
+        form.addRow(self.chk_update)
+
+        layout.addLayout(form)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def get_settings(self):
+        return {
+            "language": self.combo_lang.currentText(),
+            "theme": self.combo_theme.currentText(),
+            "show_tree": self.chk_tree.isChecked(),
+            "auto_check_updates": self.chk_update.isChecked()
+        }
 
 class FilePanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(4, 4, 4, 4)
+        self.layout.setContentsMargins(2, 2, 2, 2)
 
         nav_box = QHBoxLayout()
         self.btn_up = QPushButton("⬆")
@@ -302,7 +302,7 @@ class PreviewWidget(QFrame):
         self.setObjectName("PreviewContainer")
         self.layout = QVBoxLayout(self)
 
-        self.title_label = QLabel("Aperçu du fichier")
+        self.title_label = QLabel("Aperçu")
         self.title_label.setObjectName("PreviewTitle")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(self.title_label)
@@ -382,21 +382,6 @@ class PreviewWidget(QFrame):
             except Exception:
                 pass
 
-        if ext == '.xlsx' and HAS_OPENPYXL:
-            try:
-                wb = openpyxl.load_workbook(file_path, data_only=True)
-                sheet = wb.active
-                lines = []
-                for row in sheet.iter_rows(max_row=30, values_only=True):
-                    row_str = " | ".join([str(val) if val is not None else "" for val in row])
-                    if row_str.strip():
-                        lines.append(row_str)
-                self.txt_preview.setPlainText("\n".join(lines))
-                self.stack.setCurrentIndex(2)
-                return
-            except Exception:
-                pass
-
         if ext in ['.txt', '.md', '.py', '.json', '.xml', '.html', '.css', '.js', '.sh', '.ini', '.conf']:
             try:
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -413,11 +398,22 @@ class PreviewWidget(QFrame):
 class KorunApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_lang = "FR"
-        self.setStyleSheet(PROFESSIONAL_STYLE)
-        self.resize(1280, 800)
+        self.config = load_config()
+        self.apply_theme()
+        self.resize(1350, 850)
 
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Arborescence globale latérale
+        self.global_model = QFileSystemModel()
+        self.global_model.setRootPath(QDir.rootPath())
+        self.global_tree = QTreeView()
+        self.global_tree.setModel(self.global_model)
+        self.global_tree.setHeaderHidden(True)
+        self.global_tree.setColumnHidden(1, True)
+        self.global_tree.setColumnHidden(2, True)
+        self.global_tree.setColumnHidden(3, True)
+
         self.panel_left = FilePanel()
         self.panel_right = FilePanel()
 
@@ -427,12 +423,14 @@ class KorunApp(QMainWindow):
 
         self.preview = PreviewWidget()
 
+        self.main_splitter.addWidget(self.global_tree)
         self.main_splitter.addWidget(self.panels_splitter)
         self.main_splitter.addWidget(self.preview)
-        self.main_splitter.setSizes([850, 430])
+        self.main_splitter.setSizes([220, 750, 380])
 
         self.setCentralWidget(self.main_splitter)
 
+        self.global_tree.doubleClicked.connect(self.on_global_tree_click)
         self.panel_left.tree.selectionModel().selectionChanged.connect(
             lambda: self.preview.preview_file(self.panel_left.get_selected_path())
         )
@@ -442,8 +440,11 @@ class KorunApp(QMainWindow):
 
         self.create_toolbar()
         self.retranslate_ui()
+        self.update_visibility()
 
-        self.auto_check_update()
+    def apply_theme(self):
+        style = THEMES.get(self.config["theme"], THEMES["Catppuccin Macchiato"])
+        self.setStyleSheet(style)
 
     def create_toolbar(self):
         self.toolbar = QToolBar("Barre principale")
@@ -455,88 +456,55 @@ class KorunApp(QMainWindow):
 
         self.toolbar.addSeparator()
 
-        self.btn_check_update = QPushButton()
-        self.btn_check_update.clicked.connect(self.manual_check_update)
-        self.toolbar.addWidget(self.btn_check_update)
-
-        self.toolbar.addSeparator()
-
-        self.lbl_lang = QLabel("Langue :")
-        self.toolbar.addWidget(self.lbl_lang)
-
-        self.combo_lang = QComboBox()
-        self.combo_lang.addItems(["FR", "AR", "EN", "TR"])
-        self.combo_lang.currentTextChanged.connect(self.change_language)
-        self.toolbar.addWidget(self.combo_lang)
-
-        self.toolbar.addSeparator()
+        self.btn_settings = QPushButton()
+        self.btn_settings.clicked.connect(self.open_settings)
+        self.toolbar.addWidget(self.btn_settings)
 
         self.btn_about = QPushButton()
         self.btn_about.clicked.connect(self.show_about)
         self.toolbar.addWidget(self.btn_about)
 
-    def change_language(self, lang_code):
-        self.current_lang = lang_code
-        self.retranslate_ui()
+    def open_settings(self):
+        dialog = SettingsDialog(self.config, self)
+        if dialog.exec():
+            self.config = dialog.get_settings()
+            save_config(self.config)
+            self.apply_theme()
+            self.retranslate_ui()
+            self.update_visibility()
+
+    def update_visibility(self):
+        self.global_tree.setVisible(self.config["show_tree"])
+
+    def on_global_tree_click(self, index: QModelIndex):
+        if self.global_model.isDir(index):
+            path = self.global_model.filePath(index)
+            self.panel_left.path_edit.setText(path)
+            self.panel_left.navigate_to_path()
 
     def retranslate_ui(self):
-        t = TRANSLATIONS.get(self.current_lang, TRANSLATIONS["FR"])
+        t = TRANSLATIONS.get(self.config["language"], TRANSLATIONS["FR"])
         self.setWindowTitle(f"{t['title']} — {CURRENT_VERSION}")
         self.preview.title_label.setText(t["preview_title"])
         self.preview.lbl_empty.setText(t["preview_empty"])
         self.btn_toggle_preview.setText(t["toggle_preview"])
-        self.btn_check_update.setText(t["check_update"])
+        self.btn_settings.setText(t["settings"])
         self.btn_about.setText(t["about"])
-        self.lbl_lang.setText(t["lang_label"])
         self.panel_left.btn_up.setText(t["up_dir"])
         self.panel_right.btn_up.setText(t["up_dir"])
 
-        if t.get("rtl", False):
-            self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        else:
-            self.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-
     def toggle_preview_position(self):
-        if self.main_splitter.indexOf(self.preview) == 1:
-            self.main_splitter.insertWidget(0, self.preview)
+        if self.main_splitter.indexOf(self.preview) == 2:
+            self.main_splitter.insertWidget(1, self.preview)
         else:
             self.main_splitter.addWidget(self.preview)
-
-    def auto_check_update(self):
-        self.update_thread = UpdateCheckerThread(manual_check=False)
-        self.update_thread.update_signal.connect(self.prompt_update)
-        self.update_thread.start()
-
-    def manual_check_update(self):
-        self.update_thread_manual = UpdateCheckerThread(manual_check=True)
-        self.update_thread_manual.update_signal.connect(self.prompt_update)
-        self.update_thread_manual.start()
-
-    def prompt_update(self, latest_tag, url, available):
-        t = TRANSLATIONS.get(self.current_lang, TRANSLATIONS["FR"])
-        if available:
-            reply = QMessageBox.question(
-                self,
-                t["update_available"],
-                t["update_msg"].format(latest_tag),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                import webbrowser
-                webbrowser.open(url)
-        else:
-            QMessageBox.information(
-                self,
-                t["title"],
-                t["update_latest"].format(CURRENT_VERSION)
-            )
 
     def show_about(self):
         QMessageBox.about(
             self,
             "Körün",
-            f"<h3>Körün — {CURRENT_VERSION}</h3>"
-            "<p>Gestionnaire de fichiers multiplateforme à double panneau.</p>"
+            f"<h3>Körün Portable — {CURRENT_VERSION}</h3>"
+            "<p>Gestionnaire de fichiers multiplateforme portable.</p>"
             "<hr><p><b>Auteur :</b> David HARPUTOGLU<br><b>Contact :</b> kasparof57@gmail.com<br><b>Licence :</b> MIT</p>"
         )
 
