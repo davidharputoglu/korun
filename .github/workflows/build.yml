@@ -1,4 +1,4 @@
-name: Build and Release Körün (Flutter v0.3.0)
+name: Build and Release Körün Desktop (v0.3.0)
 
 on:
   push:
@@ -6,17 +6,11 @@ on:
       - 'v*'
 
 jobs:
-  build-linux-and-android:
+  build-linux:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
-
-      - name: Configurer Java pour Android
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
 
       - name: Configurer Flutter
         uses: subosito/flutter-action@v2
@@ -33,20 +27,21 @@ jobs:
       - name: Télécharger les paquets Flutter
         run: flutter pub get
 
-      - name: Compiler le build Linux
+      - name: Compiler pour Linux
         run: flutter build linux --release
 
-      - name: Créer les paquets Linux (.rpm, .deb, .tar.gz)
+      - name: Générer les paquets Linux (.deb, .rpm, .tar.gz)
         run: |
           mkdir -p package_root/usr/bin
           mkdir -p package_root/opt/korun
           cp -r build/linux/x64/release/bundle/* package_root/opt/korun/
           ln -s /opt/korun/korun package_root/usr/bin/korun
+          
           tar -czvf korun-v0.3.0-linux-portable.tar.gz -C build/linux/x64/release/bundle .
           fpm -s dir -t deb -n korun -v 0.3.0 --architecture amd64 -C package_root .
           fpm -s dir -t rpm -n korun -v 0.3.0 --architecture x86_64 -C package_root .
 
-      - name: Uploader les paquets Linux vers GitHub Releases
+      - name: Uploader les artefacts Linux vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           files: |
@@ -74,10 +69,10 @@ jobs:
       - name: Télécharger les paquets Flutter
         run: flutter pub get
 
-      - name: Compiler le build Windows
+      - name: Compiler pour Windows
         run: flutter build windows --release
 
-      - name: Créer l'archive Windows Portable
+      - name: Créer l'archive Portable Windows
         run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath Korun-v0.3.0-Windows-Portable.zip
 
       - name: Générer l'installeur Windows Setup.exe avec Inno Setup
