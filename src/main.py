@@ -14,11 +14,11 @@ import os
 import shutil
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QTreeView, QFileSystemModel, QSplitter, QLabel, QPushButton,
+    QTreeView, QSplitter, QLabel, QPushButton,
     QToolBar, QMessageBox, QTextEdit, QStackedWidget, QFrame, QHeaderView
 )
 from PyQt6.QtCore import Qt, QDir, QSize
-from PyQt6.QtGui import QPixmap, QAction, QFont, QColor
+from PyQt6.QtGui import QPixmap, QAction, QFont, QColor, QFileSystemModel
 
 try:
     import PyPDF2
