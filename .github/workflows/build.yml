@@ -26,7 +26,7 @@ jobs:
       - name: Installer les dépendances Python
         run: |
           python -m pip install --upgrade pip
-          pip install PyInstaller PyQt6 Pillow PyPDF2
+          pip install PyInstaller PyQt6 Pillow PyMuPDF python-docx openpyxl odfpy requests
 
       - name: Compiler avec PyInstaller
         run: |
@@ -42,7 +42,7 @@ jobs:
           cat <<EOT > package_root/usr/share/applications/korun.desktop
           [Desktop Entry]
           Name=Körün
-          Comment=Gestionnaire de fichiers double panneau avec aperçu
+          Comment=Gestionnaire de fichiers double panneau avec aperçu Office/PDF
           Exec=/usr/bin/korun
           Terminal=false
           Type=Application
@@ -53,9 +53,9 @@ jobs:
         run: |
           fpm -s dir -t deb \
             -n korun \
-            -v 0.1.1 \
+            -v 0.1.3 \
             --architecture amd64 \
-            --description "Gestionnaire de fichiers double panneau" \
+            --description "Gestionnaire de fichiers double panneau avec aperçu Office/PDF" \
             --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
             -C package_root .
 
@@ -63,9 +63,9 @@ jobs:
         run: |
           fpm -s dir -t rpm \
             -n korun \
-            -v 0.1.1 \
+            -v 0.1.3 \
             --architecture x86_64 \
-            --description "Gestionnaire de fichiers double panneau" \
+            --description "Gestionnaire de fichiers double panneau avec aperçu Office/PDF" \
             --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
             -C package_root .
 
@@ -73,8 +73,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            korun_0.1.1_amd64.deb
-            korun-0.1.1-1.x86_64.rpm
+            korun_0.1.3_amd64.deb
+            korun-0.1.3-1.x86_64.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,15 +92,15 @@ jobs:
       - name: Installer les dépendances Python
         run: |
           python -m pip install --upgrade pip
-          pip install PyInstaller PyQt6 Pillow PyPDF2
+          pip install PyInstaller PyQt6 Pillow PyMuPDF python-docx openpyxl odfpy requests
 
       - name: Compiler l'exécutable Windows
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.1-Windows" src/main.py
+          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.3-Windows" src/main.py
 
       - name: Uploader l'exécutable Windows vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Korun-v0.1.1-Windows.exe
+          files: dist/Korun-v0.1.3-Windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
