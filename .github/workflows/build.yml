@@ -94,18 +94,53 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Installer les dépendances Python
+      - name: Installer les dépendances Python et Inno Setup
         run: |
           python -m pip install --upgrade pip
           pip install PyInstaller PyQt6 Pillow PyMuPDF python-docx openpyxl odfpy requests
+          choco install innosetup -y
 
-      - name: Compiler l'exécutable Windows
+      - name: Compiler la version Portable Windows (.exe unique)
         run: |
           pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.7-Windows-Portable" src/main.py
 
-      - name: Uploader l'exécutable Windows vers GitHub Releases
+      - name: Compiler le dossier d'installation Windows
+        run: |
+          pyinstaller --noconfirm --onedir --windowed --name "Korun" src/main.py
+
+      - name: Générer le script d'installation Inno Setup (.iss)
+        shell: powershell
+        run: |
+          $issContent = @"
+          [Setup]
+          AppName=Körün
+          AppVersion=0.1.7
+          DefaultDirName={autopf}\Korun
+          DefaultGroupName=Körün
+          UninstallDisplayIcon={app}\Korun.exe
+          Compression=lzma2
+          SolidCompression=yes
+          OutputDir=dist
+          OutputBaseFilename=Korun-v0.1.7-Windows-Setup
+
+          [Files]
+          Source: "dist\Korun\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{autoprograms}\Körün"; Filename: "{app}\Korun.exe"
+          Name: "{autodesktop}\Körün"; Filename: "{app}\Korun.exe"
+          "@
+          Set-Content -Path "setup.iss" -Value $issContent
+
+      - name: Compiler l'installeur Windows Setup.exe
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
+
+      - name: Uploader les fichiers Windows (Setup + Portable) vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Korun-v0.1.7-Windows-Portable.exe
+          files: |
+            dist/Korun-v0.1.7-Windows-Portable.exe
+            dist/Korun-v0.1.7-Windows-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
