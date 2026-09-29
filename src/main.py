@@ -41,7 +41,7 @@ try:
 except ImportError:
     HAS_OPENPYXL = False
 
-CURRENT_VERSION = "v0.1.6"
+CURRENT_VERSION = "v0.1.7"
 GITHUB_REPO = "davidharputoglu/korun"
 
 # Configuration portable locale

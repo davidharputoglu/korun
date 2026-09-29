@@ -1,4 +1,4 @@
-name: Build and Release Körün Portable
+name: Build and Release Körün (Full & Portable)
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-linux-portable:
+  build-linux:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code
@@ -30,20 +30,60 @@ jobs:
 
       - name: Compiler avec PyInstaller
         run: |
-          pyinstaller --noconfirm --onedir --windowed --name "korun-portable" src/main.py
+          pyinstaller --noconfirm --onedir --windowed --name "korun" src/main.py
 
       - name: Créer l'archive Linux Portable (.tar.gz)
         run: |
-          tar -czvf korun-v0.1.6-linux-portable.tar.gz -C dist/korun-portable .
+          tar -czvf korun-v0.1.7-linux-portable.tar.gz -C dist/korun .
 
-      - name: Uploader l'archive Linux Portable vers GitHub Releases
+      - name: Structurer le paquet Linux (.deb et .rpm)
+        run: |
+          mkdir -p package_root/usr/bin
+          mkdir -p package_root/usr/share/applications
+          mkdir -p package_root/opt/korun
+          cp -r dist/korun/* package_root/opt/korun/
+          ln -s /opt/korun/korun package_root/usr/bin/korun
+          cat <<EOT > package_root/usr/share/applications/korun.desktop
+          [Desktop Entry]
+          Name=Körün
+          Comment=Gestionnaire de fichiers double panneau avec aperçu Office/PDF
+          Exec=/usr/bin/korun
+          Terminal=false
+          Type=Application
+          Categories=Utility;FileManager;
+          EOT
+
+      - name: Générer le paquet .deb
+        run: |
+          fpm -s dir -t deb \
+            -n korun \
+            -v 0.1.7 \
+            --architecture amd64 \
+            --description "Gestionnaire de fichiers double panneau" \
+            --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
+            -C package_root .
+
+      - name: Générer le paquet .rpm
+        run: |
+          fpm -s dir -t rpm \
+            -n korun \
+            -v 0.1.7 \
+            --architecture x86_64 \
+            --description "Gestionnaire de fichiers double panneau" \
+            --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
+            -C package_root .
+
+      - name: Uploader tous les formats Linux vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: korun-v0.1.6-linux-portable.tar.gz
+          files: |
+            korun_0.1.7_amd64.deb
+            korun-0.1.7-1.x86_64.rpm
+            korun-v0.1.7-linux-portable.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-windows-portable:
+  build-windows:
     runs-on: windows-latest
     steps:
       - name: Récupérer le code
@@ -59,13 +99,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install PyInstaller PyQt6 Pillow PyMuPDF python-docx openpyxl odfpy requests
 
-      - name: Compiler l'exécutable Windows Portable
+      - name: Compiler l'exécutable Windows
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.6-Windows-Portable" src/main.py
+          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.7-Windows-Portable" src/main.py
 
-      - name: Uploader l'exécutable Windows Portable vers GitHub Releases
+      - name: Uploader l'exécutable Windows vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Korun-v0.1.6-Windows-Portable.exe
+          files: dist/Korun-v0.1.7-Windows-Portable.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
