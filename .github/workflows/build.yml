@@ -1,4 +1,4 @@
-name: Build and Release Körün (v0.1.8)
+name: Build and Release Körün (v0.1.9)
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
       - name: Installer les dépendances système
         run: |
           sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm libreoffice
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm libreoffice imagemagick
           sudo gem install --no-document fpm
 
       - name: Installer les dépendances Python
@@ -30,56 +30,41 @@ jobs:
 
       - name: Compiler avec PyInstaller
         run: |
-          pyinstaller --noconfirm --onedir --windowed --name "korun" src/main.py
-
-      - name: Créer l'archive Linux Portable (.tar.gz)
-        run: |
-          tar -czvf korun-v0.1.8-linux-portable.tar.gz -C dist/korun .
+          pyinstaller --noconfirm --onedir --windowed --icon=assets/icon.png --name "korun" src/main.py
 
       - name: Structurer le paquet Linux (.deb et .rpm)
         run: |
           mkdir -p package_root/usr/bin
           mkdir -p package_root/usr/share/applications
+          mkdir -p package_root/usr/share/icons/hicolor/256x256/apps
           mkdir -p package_root/opt/korun
           cp -r dist/korun/* package_root/opt/korun/
+          cp assets/icon.png package_root/usr/share/icons/hicolor/256x256/apps/korun.png
           ln -s /opt/korun/korun package_root/usr/bin/korun
           cat <<EOT > package_root/usr/share/applications/korun.desktop
           [Desktop Entry]
           Name=Körün
           Comment=Gestionnaire de fichiers double panneau avec aperçu Office/PDF
           Exec=/usr/bin/korun
+          Icon=korun
           Terminal=false
           Type=Application
           Categories=Utility;FileManager;
           EOT
 
-      - name: Générer le paquet .deb
+      - name: Générer les paquets Linux (.deb, .rpm, .tar.gz)
         run: |
-          fpm -s dir -t deb \
-            -n korun \
-            -v 0.1.8 \
-            --architecture amd64 \
-            --description "Gestionnaire de fichiers double panneau" \
-            --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
-            -C package_root .
-
-      - name: Générer le paquet .rpm
-        run: |
-          fpm -s dir -t rpm \
-            -n korun \
-            -v 0.1.8 \
-            --architecture x86_64 \
-            --description "Gestionnaire de fichiers double panneau" \
-            --maintainer "David HARPUTOGLU <kasparof57@gmail.com>" \
-            -C package_root .
+          tar -czvf korun-v0.1.9-linux-portable.tar.gz -C dist/korun .
+          fpm -s dir -t deb -n korun -v 0.1.9 --architecture amd64 -C package_root .
+          fpm -s dir -t rpm -n korun -v 0.1.9 --architecture x86_64 -C package_root .
 
       - name: Uploader tous les formats Linux vers GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            korun_0.1.8_amd64.deb
-            korun-0.1.8-1.x86_64.rpm
-            korun-v0.1.8-linux-portable.tar.gz
+            korun_0.1.9_amd64.deb
+            korun-0.1.9-1.x86_64.rpm
+            korun-v0.1.9-linux-portable.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -102,11 +87,11 @@ jobs:
 
       - name: Compiler la version Portable Windows (.exe unique)
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name "Korun-v0.1.8-Windows-Portable" src/main.py
+          pyinstaller --noconfirm --onefile --windowed --icon=assets/icon.ico --name "Korun-v0.1.9-Windows-Portable" src/main.py
 
       - name: Compiler le dossier d'installation Windows
         run: |
-          pyinstaller --noconfirm --onedir --windowed --name "Korun" src/main.py
+          pyinstaller --noconfirm --onedir --windowed --icon=assets/icon.ico --name "Korun" src/main.py
 
       - name: Générer le script d'installation Inno Setup (.iss)
         shell: powershell
@@ -114,21 +99,22 @@ jobs:
           $issContent = @"
           [Setup]
           AppName=Körün
-          AppVersion=0.1.8
+          AppVersion=0.1.9
           DefaultDirName={autopf}\Korun
           DefaultGroupName=Körün
+          SetupIconFile=assets\icon.ico
           UninstallDisplayIcon={app}\Korun.exe
           Compression=lzma2
           SolidCompression=yes
           OutputDir=dist
-          OutputBaseFilename=Korun-v0.1.8-Windows-Setup
+          OutputBaseFilename=Korun-v0.1.9-Windows-Setup
 
           [Files]
           Source: "dist\Korun\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
           [Icons]
-          Name: "{autoprograms}\Körün"; Filename: "{app}\Korun.exe"
-          Name: "{autodesktop}\Körün"; Filename: "{app}\Korun.exe"
+          Name: "{autoprograms}\Körün"; Filename: "{app}\Korun.exe"; IconFilename: "{app}\assets\icon.ico"
+          Name: "{autodesktop}\Körün"; Filename: "{app}\Korun.exe"; IconFilename: "{app}\assets\icon.ico"
           "@
           Set-Content -Path "setup.iss" -Value $issContent
 
@@ -140,7 +126,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist/Korun-v0.1.8-Windows-Portable.exe
-            dist/Korun-v0.1.8-Windows-Setup.exe
+            dist/Korun-v0.1.9-Windows-Portable.exe
+            dist/Korun-v0.1.9-Windows-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
