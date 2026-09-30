@@ -40,13 +40,12 @@ jobs:
       - name: Package Linux tarball
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../korun-linux-x64.tar.gz *
-          cd ../../../..
+          tar -czf ../../../korun-linux-x64.tar.gz *
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: korun-linux-x64.tar.gz
+          path: build/korun-linux-x64.tar.gz
 
   windows:
     needs: version
