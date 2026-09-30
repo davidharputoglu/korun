@@ -37,10 +37,12 @@ jobs:
       - run: flutter pub get
       - run: flutter build linux --release
 
+      # Archive créée À LA RACINE du repo, sans aucun "cd" ni "../"
       - name: Package Linux tarball
-        run: |
-          cd build/linux/x64/release/bundle
-          tar -czf ../../../../korun-linux-x64.tar.gz *
+        run: tar -czf korun-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+
+      - name: Check tarball exists
+        run: ls -la korun-linux-x64.tar.gz
 
       - uses: actions/upload-artifact@v4
         with:
@@ -64,6 +66,10 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath korun-windows-x64.zip
 
+      - name: Check zip exists
+        shell: pwsh
+        run: Get-Item korun-windows-x64.zip
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
@@ -79,6 +85,9 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts
 
       - uses: softprops/action-gh-release@v2
         with:
