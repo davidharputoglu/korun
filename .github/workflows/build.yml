@@ -40,12 +40,12 @@ jobs:
       - name: Package Linux tarball
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../korun-linux-x64.tar.gz *
+          tar -czf ../../../../korun-linux-x64.tar.gz *
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: build/korun-linux-x64.tar.gz
+          path: korun-linux-x64.tar.gz
 
   windows:
     needs: version
@@ -62,12 +62,12 @@ jobs:
 
       - name: Package Windows zip
         shell: pwsh
-        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath build\korun-windows-x64.zip
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath korun-windows-x64.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: build\korun-windows-x64.zip
+          path: korun-windows-x64.zip
 
   release:
     needs: [version, linux, windows]
