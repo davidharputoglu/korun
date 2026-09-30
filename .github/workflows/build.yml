@@ -1,4 +1,5 @@
 name: Build and Release
+
 on:
   push:
     tags: ['v*']
@@ -18,36 +19,78 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies (GTK + GStreamer)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config libgtk-3-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-good1.0-dev \
+            gstreamer1.0-plugins-good
+
       - uses: subosito/flutter-action@v2
-        with: { channel: stable }
-      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+        with:
+          channel: stable
+
+      - run: flutter pub get
       - run: flutter build linux --release
-      - run: cd build/linux/x64/release/bundle && tar -czf ../../../korun-linux.tar.gz *
+
+      - name: Package Linux tarball
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ../../../../korun-linux-x64.tar.gz *
+          cd ../../../..
+
       - uses: actions/upload-artifact@v4
-        with: { name: linux-build, path: build/korun-linux.tar.gz }
+        with:
+          name: linux-build
+          path: korun-linux-x64.tar.gz
 
   windows:
     needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
-        with: { channel: stable }
+        with:
+          channel: stable
+
+      - run: flutter pub get
       - run: flutter build windows --release
-      - run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath build\korun-windows.zip
+
+      - name: Package Windows zip
+        shell: pwsh
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath build\korun-windows-x64.zip
+
       - uses: actions/upload-artifact@v4
-        with: { name: windows-build, path: build\korun-windows.zip }
+        with:
+          name: windows-build
+          path: build\korun-windows-x64.zip
 
   release:
     needs: [version, linux, windows]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
-        with: { path: artifacts }
+        with:
+          path: artifacts
+          merge-multiple: true
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Körün v${{ needs.version.outputs.version }}
-          files: artifacts/**/*
+          body: |
+            Release **Körün v${{ needs.version.outputs.version }}**
+            - Linux (tar.gz, x64)
+            - Windows (zip, x64)
+          files: artifacts/*
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
