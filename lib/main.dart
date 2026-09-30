@@ -373,7 +373,10 @@ class _ShadowExplorerDialogState extends State<ShadowExplorerDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 width: double.infinity,
-                decoration: BoxDecoration(color: Colors.black25, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Text(t['no_shadows']!),
               )
             else
