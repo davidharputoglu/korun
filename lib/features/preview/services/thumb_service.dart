@@ -26,7 +26,7 @@ class ThumbService {
         result = null; // ffmpeg absent -> le panneau affiche l'icône typée
       }
     }
-    _videoCache[path] = result;
+    if (result != null) _videoCache[path] = result;
     return result;
   }
 
@@ -45,7 +45,7 @@ class ThumbService {
         result = null;
       }
     }
-    _audioCache[path] = result;
+    if (result != null) _audioCache[path] = result;
     return result;
   }
 

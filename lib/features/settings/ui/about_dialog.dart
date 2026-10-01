@@ -7,6 +7,66 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/app_info.dart';
 import '../../../core/i18n/l10n.dart';
 
+const _mitLicenseText = '''
+MIT License
+
+Copyright (c) 2026 David Harputoglu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+''';
+
+void showKorunLicenses(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(tr(context, 'legal_information')),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: SingleChildScrollView(
+          child: SelectableText(
+            '${tr(context, 'app_license')}\n\n$_mitLicenseText\n${tr(context, 'disclaimer')}',
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: Text(tr(context, 'cancel')),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(dialogContext);
+            showLicensePage(
+              context: context,
+              applicationName: 'Körün',
+              applicationVersion: AppInfo.version,
+              applicationLegalese: tr(context, 'app_license'),
+            );
+          },
+          child: Text(tr(context, 'third_party_licenses')),
+        ),
+      ],
+    ),
+  );
+}
+
 class KorunAboutDialog extends StatefulWidget {
   const KorunAboutDialog({super.key});
   @override
@@ -89,6 +149,12 @@ class _KorunAboutDialogState extends State<KorunAboutDialog> {
                       width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.system_update_alt, size: 18),
               label: Text(tr(context, 'check_update')),
+            ),
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: () => showKorunLicenses(context),
+              icon: const Icon(Icons.policy_outlined),
+              label: Text(tr(context, 'legal_information')),
             ),
           ],
         ),

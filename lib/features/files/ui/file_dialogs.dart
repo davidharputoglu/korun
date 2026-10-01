@@ -4,6 +4,73 @@ import '../../../core/i18n/l10n.dart';
 import '../../../core/utils/file_utils.dart';
 import '../data/models/file_entry.dart';
 
+Future<String?> askArchiveName(BuildContext context, String initialName) =>
+    showDialog<String>(
+      context: context,
+      builder: (_) => _ArchiveNameDialog(initialName: initialName),
+    );
+
+class _ArchiveNameDialog extends StatefulWidget {
+  const _ArchiveNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_ArchiveNameDialog> createState() => _ArchiveNameDialogState();
+}
+
+class _ArchiveNameDialogState extends State<_ArchiveNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(tr(context, 'compress')),
+        content: TextField(
+          controller: _controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: tr(context, 'archive_name'),
+            suffixText: '.zip',
+          ),
+          onSubmitted: (_) => _submit(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(tr(context, 'cancel')),
+          ),
+          ElevatedButton(
+            onPressed: _submit,
+            child: Text(tr(context, 'create')),
+          ),
+        ],
+      );
+
+  void _submit() {
+    final name = _controller.text.trim();
+    if (name.isEmpty ||
+        name.contains('/') ||
+        name.contains('\\') ||
+        name == '.' ||
+        name == '..') {
+      return;
+    }
+    Navigator.pop(context, name);
+  }
+}
+
 Future<String?> askRename(BuildContext context, String current) =>
     showDialog<String>(
       context: context,

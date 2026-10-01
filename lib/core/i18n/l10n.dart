@@ -26,8 +26,72 @@ class L10n {
     'tt': {'title': 'Körün — Файл менеджеры', 'select_file': 'Карау өчен файл сайлагыз', 'details': 'Файл детальләре', 'name': 'Исем:', 'path': 'Юл:', 'size': 'Күләм:', 'modified': 'Үзгәртелгән:', 'accessed': 'Мөрәҗәгать:', 'created': 'Ясалган:', 'left_panel': 'Сул панель', 'right_panel': 'Уң панель', 'preview': 'Карау', 'show_hidden': 'Яшерен файлларны күрсәтү', 'hide_hidden': 'Яшерен файлларны яшерү', 'settings': 'Көйләүләр', 'theme': 'Тема', 'language': 'Тел', 'empty': 'Буш папка', 'type': 'Төр:', 'edit_dates': 'Көннәрне үзгәртү', 'save': 'Саклау', 'cancel': 'Баш тарту', 'about': 'Турында', 'version': 'Версия', 'author': 'Автор', 'disclaimer': 'Ничек бар шулай бирелә, гарантия юк.', 'auto_update': 'Тавышсыз авто яңарту', 'check_update': 'Яңартуларны тикшерү', 'update_found': 'Яңарту бар', 'theme_title': 'Темалар', 'mode_light': 'Ачык', 'mode_dark': 'Карангы', 'mode_oled': 'OLED кара', 'custom_themes': 'Үз темалары', 'theme_name': 'Тема исеме', 'create': 'Ясау', 'delete': 'Бетерү', 'otken_title': 'Ötken — Версияләр тарихы', 'no_snapshots': 'Snapshot табылмады', 'office_wait': 'LibreOffice әверелдерү…', 'office_missing': 'LibreOffice юк: карау юк', 'language_title': 'Тел', 'created_note': 'Linux-та билгеләнми (ядро чикләве). Windows-та үзгәртелә.', 'open': 'Ачу', 'copy': 'Күчерү', 'cut': 'Кисү', 'paste': 'Кую', 'rename': 'Исемне үзгәртү', 'batch_rename': 'Төркемләп исем үзгәртү', 'properties': 'Үзлекләре', 'new_folder': 'Яңа папка', 'confirm_delete': 'Бетерүне раслау', 'confirm_delete_msg': 'Бу элементны чыннан бетерергә телисезме?', 'folder_name': 'Папка исеме', 'sort_name': 'Исем', 'sort_size': 'Күләм', 'sort_date': 'Дата', 'refresh': 'Яңарту', 'batch_mode_number': 'Санлау (нигез + сан)', 'batch_mode_replace': 'Табу / алыштыру', 'batch_mode_case': 'Хәреф үлчәме', 'batch_base': 'Нигез исем', 'batch_start': 'Башлангыч сан', 'batch_search': 'Табу', 'batch_replace': 'Алыштыру', 'batch_lower': 'кече хәрефләр', 'batch_upper': 'ЗУР ХӘРЕФЛӘР', 'batch_preview': 'Яңа исемнәрне алдан карау'},
   };
 
+  static const Map<String, Map<String, String>> _extraValues = {
+    'fr': {
+      'show_previews': 'Afficher les aperçus dans les deux panneaux',
+      'open_with': 'Ouvrir avec…',
+      'open_with_failed': 'Impossible d’ouvrir le sélecteur « Ouvrir avec »',
+      'no_open_with_apps': 'Aucune application installée ne reconnaît ce type de fichier.',
+      'compress': 'Compresser en ZIP…',
+      'archive_name': 'Nom de l’archive',
+      'extract_here': 'Extraire ici',
+      'archive_created': 'Archive créée',
+      'archive_extracted': 'Archive extraite dans',
+      'operation_failed': 'Échec de l’opération',
+      'video_preview_unavailable':
+          'Miniature indisponible. Installez ffmpeg pour créer un aperçu.',
+      'audio_preview_unavailable':
+          'Pochette indisponible. Installez ffmpeg pour afficher l’aperçu.',
+      'legal_information': 'Licences et informations légales',
+      'third_party_licenses': 'Licences des dépendances',
+      'app_license': 'Körün est distribué sous licence MIT. Le texte intégral figure dans le fichier LICENSE du dépôt.',
+    },
+    'en': {
+      'show_previews': 'Show previews in both panes',
+      'open_with': 'Open with…',
+      'open_with_failed': 'Could not open the “Open with” chooser',
+      'no_open_with_apps': 'No installed application recognizes this file type.',
+      'compress': 'Compress to ZIP…',
+      'archive_name': 'Archive name',
+      'extract_here': 'Extract here',
+      'archive_created': 'Archive created',
+      'archive_extracted': 'Archive extracted to',
+      'operation_failed': 'Operation failed',
+      'video_preview_unavailable':
+          'Thumbnail unavailable. Install ffmpeg to generate a preview.',
+      'audio_preview_unavailable':
+          'Cover unavailable. Install ffmpeg to show this preview.',
+      'legal_information': 'Licenses and legal information',
+      'third_party_licenses': 'Third-party dependency licenses',
+      'app_license': 'Körün is distributed under the MIT License. The full text is in the repository LICENSE file.',
+    },
+    'tr': {
+      'show_previews': 'Her iki panelde de önizlemeleri göster',
+      'open_with': 'Birlikte aç…',
+      'open_with_failed': '“Birlikte aç” seçicisi açılamadı',
+      'no_open_with_apps': 'Bu dosya türünü tanıyan yüklü bir uygulama yok.',
+      'compress': 'ZIP olarak sıkıştır…',
+      'archive_name': 'Arşiv adı',
+      'extract_here': 'Buraya çıkar',
+      'archive_created': 'Arşiv oluşturuldu',
+      'archive_extracted': 'Arşiv çıkarıldı:',
+      'operation_failed': 'İşlem başarısız',
+      'video_preview_unavailable':
+          'Küçük resim kullanılamıyor. Önizleme oluşturmak için ffmpeg yükleyin.',
+      'audio_preview_unavailable':
+          'Kapak kullanılamıyor. Önizlemeyi göstermek için ffmpeg yükleyin.',
+      'legal_information': 'Lisanslar ve yasal bilgiler',
+      'third_party_licenses': 'Üçüncü taraf bağımlılık lisansları',
+      'app_license': 'Körün MIT Lisansı ile dağıtılır. Lisansın tam metni depodaki LICENSE dosyasındadır.',
+    },
+  };
+
   static String t(Locale locale, String key) =>
-      _values[locale.languageCode]?[key] ?? _values['en']![key] ?? key;
+      _values[locale.languageCode]?[key] ??
+      _extraValues[locale.languageCode]?[key] ??
+      _values['en']![key] ??
+      _extraValues['en']![key] ??
+      key;
 }
 
 String tr(BuildContext context, String key) =>

@@ -1,11 +1,21 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
+import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/file_entry.dart';
 
 enum SortBy { name, size, date }
 enum ViewMode { list, grid }
+
+class OpenWithApp {
+  const OpenWithApp({required this.name, required this.desktopFile});
+
+  final String name;
+  final String desktopFile;
+}
 
 class FileSystemService {
   /// Listing + stats EN PARALLÈLE + filtre cachés + tri.
@@ -74,12 +84,312 @@ class FileSystemService {
     }
   }
 
+  Future<void> openWith(String path) async {
+    if (Platform.isWindows) {
+      await Process.start(
+        'rundll32.exe',
+        ['shell32.dll,OpenAs_RunDLL', path],
+        mode: ProcessStartMode.detached,
+      );
+      return;
+    }
+    throw UnsupportedError(
+      'Choose a Linux application with availableOpenWithApps and launchWith.',
+    );
+  }
+
+  Future<List<OpenWithApp>> availableOpenWithApps(
+    String path, {
+    required String locale,
+  }) async {
+    if (!Platform.isLinux) return const [];
+    final mimeType = lookupMimeType(path);
+    if (mimeType == null) return const [];
+
+    final dataHome = Platform.environment['XDG_DATA_HOME'] ??
+        p.join(Platform.environment['HOME'] ?? '', '.local', 'share');
+    final dataDirs = (Platform.environment['XDG_DATA_DIRS'] ??
+            '/usr/local/share:/usr/share')
+        .split(':');
+    final applicationDirs = <String>[
+      p.join(dataHome, 'applications'),
+      ...dataDirs.map((dir) => p.join(dir, 'applications')),
+    ];
+
+    final apps = <String, OpenWithApp>{};
+    for (final directoryPath in applicationDirs) {
+      final directory = Directory(directoryPath);
+      if (!await directory.exists()) continue;
+      await for (final entity
+          in directory.list(recursive: true, followLinks: false)) {
+        if (entity is! File || !entity.path.endsWith('.desktop')) continue;
+        final contents = await entity.readAsString();
+        final entry = _parseDesktopEntry(contents, locale);
+        if (entry == null ||
+            !entry.mimeTypes.contains(mimeType) ||
+            entry.hidden ||
+            entry.noDisplay) {
+          continue;
+        }
+        final name = entry.name;
+        apps.putIfAbsent(
+          entity.path,
+          () => OpenWithApp(name: name, desktopFile: entity.path),
+        );
+      }
+    }
+    final result = apps.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return result;
+  }
+
+  Future<void> launchWith(OpenWithApp app, String path) async {
+    if (!Platform.isLinux) {
+      throw UnsupportedError('Desktop file launching is only supported on Linux.');
+    }
+    await Process.start(
+      'gio',
+      ['launch', app.desktopFile, p.toUri(path).toString()],
+      mode: ProcessStartMode.detached,
+    );
+  }
+
+  _DesktopEntry? _parseDesktopEntry(String contents, String locale) {
+    var inDesktopEntry = false;
+    var name = '';
+    var localizedName = '';
+    var mimeTypes = <String>[];
+    var hidden = false;
+    var noDisplay = false;
+    var type = '';
+    final language = locale.split('_').first.split('@').first;
+    for (final rawLine in const LineSplitter().convert(contents)) {
+      final line = rawLine.trim();
+      if (line.startsWith('[') && line.endsWith(']')) {
+        inDesktopEntry = line == '[Desktop Entry]';
+        continue;
+      }
+      if (!inDesktopEntry || line.isEmpty || line.startsWith('#')) continue;
+      final separator = line.indexOf('=');
+      if (separator < 1) continue;
+      final key = line.substring(0, separator);
+      final value = line.substring(separator + 1);
+      if (key == 'Name') name = value;
+      if (key == 'Name[$language]') localizedName = value;
+      if (key == 'MimeType') mimeTypes = value.split(';');
+      if (key == 'Hidden') hidden = value == 'true';
+      if (key == 'NoDisplay') noDisplay = value == 'true';
+      if (key == 'Type') type = value;
+    }
+    if (type != 'Application' || name.isEmpty) return null;
+    return _DesktopEntry(
+      name: localizedName.isEmpty ? name : localizedName,
+      mimeTypes: mimeTypes,
+      hidden: hidden,
+      noDisplay: noDisplay,
+    );
+  }
+
+  Future<String> compressToZip(
+    List<String> paths,
+    String archivePath,
+  ) async {
+    if (paths.isEmpty) {
+      throw ArgumentError('Select at least one file or folder.');
+    }
+    if (await FileSystemEntity.type(
+          archivePath,
+          followLinks: false,
+        ) !=
+        FileSystemEntityType.notFound) {
+      throw FileSystemException('The archive already exists.', archivePath);
+    }
+
+    final output = File(archivePath);
+    await output.create(exclusive: true);
+    OutputFileStream? outputStream;
+    final encoder = ZipEncoder();
+    try {
+      outputStream = OutputFileStream(archivePath);
+      encoder.startEncode(outputStream);
+      for (final sourcePath in paths) {
+        final sourceName = p.basename(sourcePath);
+        final type =
+            await FileSystemEntity.type(sourcePath, followLinks: false);
+        if (type == FileSystemEntityType.file) {
+          await _addFileToArchive(encoder, File(sourcePath), sourceName);
+        } else if (type == FileSystemEntityType.directory) {
+          await _addDirectoryToArchive(
+            encoder,
+            Directory(sourcePath),
+            sourceName,
+          );
+        } else {
+          throw FileSystemException(
+            'Unsupported file system entry.',
+            sourcePath,
+          );
+        }
+      }
+      encoder.endEncode();
+      await outputStream.close();
+    } catch (_) {
+      if (outputStream != null) await outputStream.close();
+      await output.delete();
+      rethrow;
+    }
+    return archivePath;
+  }
+
+  Future<void> _addDirectoryToArchive(
+    ZipEncoder encoder,
+    Directory directory,
+    String archiveDirectory,
+  ) async {
+    final children =
+        await directory.list(followLinks: false, recursive: false).toList();
+    if (children.isEmpty) {
+      encoder.add(
+        ArchiveFile.directory('$archiveDirectory/'),
+        autoClose: false,
+      );
+      return;
+    }
+    await _addDirectoryChildren(encoder, children, archiveDirectory);
+  }
+
+  Future<void> _addDirectoryChildren(
+    ZipEncoder encoder,
+    List<FileSystemEntity> children,
+    String archiveDirectory,
+  ) async {
+    for (final entity in children) {
+      final name = p.posix.join(archiveDirectory, p.basename(entity.path));
+      if (entity is Directory) {
+        final nestedChildren =
+            await entity.list(followLinks: false, recursive: false).toList();
+        if (nestedChildren.isEmpty) {
+          encoder.add(ArchiveFile.directory('$name/'), autoClose: false);
+        } else {
+          await _addDirectoryChildren(encoder, nestedChildren, name);
+        }
+      } else if (entity is File) {
+        await _addFileToArchive(encoder, entity, name);
+      }
+    }
+  }
+
+  Future<void> _addFileToArchive(
+    ZipEncoder encoder,
+    File file,
+    String archivePath,
+  ) async {
+    final input = InputFileStream(file.path);
+    try {
+      final archiveFile = ArchiveFile.stream(archivePath, input);
+      archiveFile.lastModTime =
+          (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
+      encoder.add(archiveFile, autoClose: false);
+    } finally {
+      await input.close();
+    }
+  }
+
+  Future<String> extractZip(String archivePath) async {
+    if (!archivePath.toLowerCase().endsWith('.zip')) {
+      throw FileSystemException('Only ZIP archives are supported.', archivePath);
+    }
+    final outputPath =
+        p.join(p.dirname(archivePath), p.basenameWithoutExtension(archivePath));
+    if (await FileSystemEntity.type(
+          outputPath,
+          followLinks: false,
+        ) !=
+        FileSystemEntityType.notFound) {
+      throw FileSystemException('The extraction folder already exists.', outputPath);
+    }
+
+    final input = InputFileStream(archivePath);
+    Directory? staging;
+    try {
+      final archive = ZipDecoder().decodeStream(input);
+      staging = await Directory(
+        p.join(p.dirname(outputPath), '.korun-extract-'),
+      ).createTemp();
+      for (final entry in archive) {
+        final normalizedName = entry.name.replaceAll('\\', '/');
+        final segments = normalizedName.split('/');
+        if (normalizedName.startsWith('/') ||
+            RegExp(r'^[a-zA-Z]:').hasMatch(normalizedName) ||
+            segments.contains('..') ||
+            entry.isSymbolicLink) {
+          throw FormatException('Unsafe path in ZIP archive: ${entry.name}');
+        }
+        if (normalizedName.isEmpty || normalizedName == '.') continue;
+        final destination = p.normalize(p.join(staging.path, normalizedName));
+        if (!p.isWithin(staging.path, destination)) {
+          throw FormatException('Unsafe path in ZIP archive: ${entry.name}');
+        }
+        if (entry.isDirectory) {
+          await Directory(destination).create(recursive: true);
+        } else {
+          if (await FileSystemEntity.type(
+                destination,
+                followLinks: false,
+              ) !=
+              FileSystemEntityType.notFound) {
+            throw FormatException(
+              'Duplicate path in ZIP archive: ${entry.name}',
+            );
+          }
+          await Directory(p.dirname(destination)).create(recursive: true);
+          final output = OutputFileStream(destination);
+          try {
+            entry.writeContent(output);
+          } finally {
+            await output.close();
+          }
+        }
+      }
+      if (await FileSystemEntity.type(outputPath, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        throw FileSystemException(
+          'The extraction folder already exists.',
+          outputPath,
+        );
+      }
+      await staging.rename(outputPath);
+    } catch (_) {
+      if (staging != null && await staging.exists()) {
+        await staging.delete(recursive: true);
+      }
+      rethrow;
+    } finally {
+      await input.close();
+    }
+    return outputPath;
+  }
+
   Future<void> copyEntity(String src, String destDir) async {
     final dest = p.join(destDir, p.basename(src));
     if (FileSystemEntity.isDirectorySync(src)) {
       await _copyDir(Directory(src), Directory(dest));
     } else {
       await File(src).copy(dest);
+    }
+
+    class _DesktopEntry {
+      const _DesktopEntry({
+        required this.name,
+        required this.mimeTypes,
+        required this.hidden,
+        required this.noDisplay,
+      });
+
+      final String name;
+      final List<String> mimeTypes;
+      final bool hidden;
+      final bool noDisplay;
     }
   }
 

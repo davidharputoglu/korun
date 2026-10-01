@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../core/app_info.dart';
@@ -62,6 +65,81 @@ class _HomePageState extends State<HomePage> {
     } else {
       await _fs.openExternal(entry.path);
     }
+  }
+
+  Future<void> _openWith(FileEntry entry) async {
+    try {
+      if (Platform.isWindows) {
+        await _fs.openWith(entry.path);
+        return;
+      }
+      final apps = await _fs.availableOpenWithApps(
+        entry.path,
+        locale: context.read<SettingsController>().locale.languageCode,
+      );
+      if (!mounted) return;
+      if (apps.isEmpty) {
+        _showOperationMessage(tr(context, 'no_open_with_apps'));
+        return;
+      }
+      final app = await showDialog<OpenWithApp>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: Text(tr(dialogContext, 'open_with')),
+          children: [
+            for (final candidate in apps)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialogContext, candidate),
+                child: Text(candidate.name),
+              ),
+          ],
+        ),
+      );
+      if (app != null) await _fs.launchWith(app, entry.path);
+    } catch (error) {
+      if (mounted) _showOperationMessage(
+        '${tr(context, 'open_with_failed')}: $error',
+      );
+    }
+  }
+
+  Future<void> _compress(PaneController pane) async {
+    final entries = pane.selectedEntries;
+    if (entries.isEmpty) return;
+    final initialName = entries.length == 1
+        ? p.basenameWithoutExtension(entries.first.name)
+        : 'archive';
+    final name = await askArchiveName(context, initialName);
+    if (name == null) return;
+    final archiveName = name.toLowerCase().endsWith('.zip') ? name : '$name.zip';
+    try {
+      final archivePath = await _fs.compressToZip(
+        entries.map((entry) => entry.path).toList(),
+        p.join(pane.currentPath, archiveName),
+      );
+      await pane.refresh();
+      if (mounted) _showOperationMessage(
+        '${tr(context, 'archive_created')}: ${p.basename(archivePath)}',
+      );
+    } catch (error) {
+      if (mounted) _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
+  }
+
+  Future<void> _extract(FileEntry entry, PaneController pane) async {
+    try {
+      final outputPath = await _fs.extractZip(entry.path);
+      await pane.refresh();
+      if (mounted) _showOperationMessage(
+        '${tr(context, 'archive_extracted')}: ${p.basename(outputPath)}',
+      );
+    } catch (error) {
+      if (mounted) _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
+  }
+
+  void _showOperationMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _paste(PaneController pane) async {
@@ -139,6 +217,12 @@ class _HomePageState extends State<HomePage> {
     switch (action) {
       case 'open':
         _open(entry, pane);
+      case 'open_with':
+        _openWith(entry);
+      case 'compress':
+        _compress(pane);
+      case 'extract':
+        _extract(entry, pane);
       case 'copy':
         _clipPaths = pane.selectedEntries.map((e) => e.path).toList();
         _isCut = false;
@@ -219,16 +303,17 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             actions: [
-              IconButton(
-                tooltip: tr(context, 'otken_title'),
-                icon: const Icon(Icons.history),
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => OtkenDialog(
-                    onSnapshotSelected: (p) => _active.cd(p),
+              if (settings.otkenEnabled)
+                IconButton(
+                  tooltip: tr(context, 'otken_title'),
+                  icon: const Icon(Icons.history),
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => OtkenDialog(
+                      onSnapshotSelected: (p) => _active.cd(p),
+                    ),
                   ),
                 ),
-              ),
               IconButton(
                 tooltip: tr(context, 'edit_dates'),
                 icon: const Icon(Icons.edit_calendar),
@@ -271,7 +356,9 @@ class _HomePageState extends State<HomePage> {
                 tooltip: tr(context, 'settings'),
                 icon: const Icon(Icons.settings),
                 onPressed: () => showDialog(
-                    context: context, builder: (_) => const SettingsDialog()),
+                    context: context,
+                    builder: (_) =>
+                        SettingsDialog(onShowHiddenChanged: _reloadBoth)),
               ),
               IconButton(
                 tooltip: tr(context, 'about'),
@@ -284,28 +371,53 @@ class _HomePageState extends State<HomePage> {
           body: Row(
             children: [
               Expanded(
-                child: FilePane(
-                  controller: _left,
-                  active: _activePane == 0,
-                  locale: settings.locale,
-                  onActivate: () => setState(() => _activePane = 0),
-                  onOpen: (e) => _open(e, _left),
-                  onAction: (a, e) => _onAction(0, a, e),
-                  onNewFolder: () => _newFolder(_left),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Expanded(
+                        child: FilePane(
+                          controller: _left,
+                          active: _activePane == 0,
+                          locale: settings.locale,
+                          onActivate: () => setState(() => _activePane = 0),
+                          onOpen: (e) => _open(e, _left),
+                          onAction: (a, e) => _onAction(0, a, e),
+                          onNewFolder: () => _newFolder(_left),
+                        ),
+                      ),
+                      if (settings.showPreviews)
+                        PreviewPanel(
+                          controller: _left,
+                          width: constraints.maxWidth < 640 ? 180 : 240,
+                        ),
+                    ],
+                  ),
                 ),
               ),
               Expanded(
-                child: FilePane(
-                  controller: _right,
-                  active: _activePane == 1,
-                  locale: settings.locale,
-                  onActivate: () => setState(() => _activePane = 1),
-                  onOpen: (e) => _open(e, _right),
-                  onAction: (a, e) => _onAction(1, a, e),
-                  onNewFolder: () => _newFolder(_right),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Expanded(
+                        child: FilePane(
+                          controller: _right,
+                          active: _activePane == 1,
+                          locale: settings.locale,
+                          onActivate: () => setState(() => _activePane = 1),
+                          onOpen: (e) => _open(e, _right),
+                          onAction: (a, e) => _onAction(1, a, e),
+                          onNewFolder: () => _newFolder(_right),
+                        ),
+                      ),
+                      if (settings.showPreviews)
+                        PreviewPanel(
+                          controller: _right,
+                          width: constraints.maxWidth < 640 ? 180 : 240,
+                        ),
+                    ],
+                  ),
                 ),
               ),
-              PreviewPanel(controller: _active),
             ],
           ),
         ),

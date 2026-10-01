@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -100,6 +102,9 @@ class _FilePaneState extends State<FilePane> {
       position: RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx, pos.dy),
       items: [
         PopupMenuItem(value: 'open', child: Text(tr(context, 'open'))),
+        if (!entry.isDir && (Platform.isWindows || Platform.isLinux))
+          PopupMenuItem(
+              value: 'open_with', child: Text(tr(context, 'open_with'))),
         PopupMenuItem(value: 'copy', child: Text(tr(context, 'copy'))),
         PopupMenuItem(value: 'cut', child: Text(tr(context, 'cut'))),
         PopupMenuItem(value: 'paste', child: Text(tr(context, 'paste'))),
@@ -109,6 +114,10 @@ class _FilePaneState extends State<FilePane> {
           PopupMenuItem(
               value: 'batch_rename', child: Text(tr(context, 'batch_rename'))),
         PopupMenuItem(value: 'delete', child: Text(tr(context, 'delete'))),
+        const PopupMenuDivider(),
+        PopupMenuItem(value: 'compress', child: Text(tr(context, 'compress'))),
+        if (!entry.isDir && entry.extension == '.zip')
+          PopupMenuItem(value: 'extract', child: Text(tr(context, 'extract_here'))),
         const PopupMenuDivider(),
         PopupMenuItem(value: 'newfolder', child: Text(tr(context, 'new_folder'))),
         PopupMenuItem(value: 'props', child: Text(tr(context, 'properties'))),

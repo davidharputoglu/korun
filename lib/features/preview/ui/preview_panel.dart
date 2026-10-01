@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:mime/mime.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../../core/i18n/l10n.dart';
@@ -18,14 +19,26 @@ const _textExts = [
   '.ts', '.html', '.css', '.xml', '.csv', '.sh', '.bat', '.c', '.cpp',
   '.h', '.rs', '.ini', '.conf',
 ];
-const _videoExts = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv'];
-const _audioExts = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac'];
+const _videoExts = [
+  '.mp4', '.m4v', '.mkv', '.avi', '.mov', '.webm', '.flv', '.wmv',
+  '.mpeg', '.mpg', '.m2v', '.3gp', '.3g2', '.mts', '.m2ts',
+  '.ogv', '.vob', '.asf', '.mxf', '.rm', '.rmvb', '.divx',
+];
+const _audioExts = [
+  '.mp3', '.wav', '.ogg', '.oga', '.opus', '.flac', '.m4a', '.aac',
+  '.wma', '.aiff', '.aif',
+];
 const _archiveExts = ['.zip', '.tar', '.gz', '.bz2', '.xz'];
 
 class PreviewPanel extends StatelessWidget {
-  const PreviewPanel({super.key, required this.controller});
+  const PreviewPanel({
+    super.key,
+    required this.controller,
+    this.width = 240,
+  });
 
   final PaneController controller;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +47,7 @@ class PreviewPanel extends StatelessWidget {
       builder: (context, _) {
         final e = controller.selected;
         return SizedBox(
-          width: 320,
+          width: width,
           child: Container(
             decoration: BoxDecoration(
               border: Border(
@@ -91,6 +104,38 @@ class PreviewPanel extends StatelessWidget {
         child: PdfViewer.file(e.path),
       );
     }
+    final mimeType = lookupMimeType(e.name);
+    if (mimeType?.startsWith('video/') == true ||
+        (_videoExts.contains(ext) && ext != '.ts')) {
+      return FutureBuilder<String?>(
+        future: ThumbService.videoThumb(e.path),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.data != null) {
+            return Image.file(
+              File(snap.data!),
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => _mediaPlaceholder(
+                context,
+                e,
+                Icons.movie,
+                const Color(0xFFEF5350),
+                'video_preview_unavailable',
+              ),
+            );
+          }
+          return _mediaPlaceholder(
+            context,
+            e,
+            Icons.movie,
+            const Color(0xFFEF5350),
+            'video_preview_unavailable',
+          );
+        },
+      );
+    }
     if (_textExts.contains(ext)) return _TextPreview(path: e.path);
     // Office : conversion LibreOffice headless -> PDF -> rendu réel
     if (OfficeService.exts.contains(ext)) {
@@ -129,21 +174,7 @@ class PreviewPanel extends StatelessWidget {
         },
       );
     }
-    if (_videoExts.contains(ext)) {
-      return FutureBuilder<String?>(
-        future: ThumbService.videoThumb(e.path),
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.data != null) {
-            return Image.file(File(snap.data!), fit: BoxFit.contain);
-          }
-          return _centerIcon(context, Icons.movie, const Color(0xFFEF5350), e.name);
-        },
-      );
-    }
-    if (_audioExts.contains(ext)) {
+    if (_audioExts.contains(ext) || mimeType?.startsWith('audio/') == true) {
       return FutureBuilder<String?>(
         future: ThumbService.audioCover(e.path),
         builder: (context, snap) {
@@ -153,7 +184,13 @@ class PreviewPanel extends StatelessWidget {
           if (snap.data != null) {
             return Image.file(File(snap.data!), fit: BoxFit.contain);
           }
-          return _centerIcon(context, Icons.audiotrack, const Color(0xFFAB47BC), e.name);
+          return _mediaPlaceholder(
+            context,
+            e,
+            Icons.audiotrack,
+            const Color(0xFFAB47BC),
+            'audio_preview_unavailable',
+          );
         },
       );
     }
@@ -200,6 +237,42 @@ class PreviewPanel extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      );
+
+  Widget _mediaPlaceholder(
+    BuildContext context,
+    FileEntry entry,
+    IconData icon,
+    Color color,
+    String messageKey,
+  ) =>
+      Center(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 48, color: color),
+              const SizedBox(height: 8),
+              Text(
+                entry.name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr(context, messageKey),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
         ),
       );
 

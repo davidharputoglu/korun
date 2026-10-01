@@ -33,6 +33,8 @@ class SettingsController extends ChangeNotifier {
   List<CustomTheme> _customThemes = [];
   Locale _locale = const Locale('fr');
   bool _showHidden = false;
+  bool _showPreviews = true;
+  bool _otkenEnabled = true;
 
   AppThemeMode get mode => _mode;
   Color get accent => _accent;
@@ -40,6 +42,8 @@ class SettingsController extends ChangeNotifier {
   List<CustomTheme> get customThemes => List.unmodifiable(_customThemes);
   Locale get locale => _locale;
   bool get showHidden => _showHidden;
+  bool get showPreviews => _showPreviews;
+  bool get otkenEnabled => _otkenEnabled;
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
@@ -50,6 +54,8 @@ class SettingsController extends ChangeNotifier {
         .map((s) => CustomTheme.fromJson(jsonDecode(s) as Map<String, dynamic>)).toList();
     _locale = Locale(p.getString('locale') ?? 'fr');
     _showHidden = p.getBool('showHidden') ?? false;
+    _showPreviews = p.getBool('showPreviews') ?? true;
+    _otkenEnabled = p.getBool('otkenEnabled') ?? true;
     notifyListeners();
   }
 
@@ -75,6 +81,16 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setLocale(Locale l) async { _locale = l; notifyListeners(); await _persist(); }
   Future<void> toggleHidden() async { _showHidden = !_showHidden; notifyListeners(); await _persist(); }
+  Future<void> setShowPreviews(bool value) async {
+    _showPreviews = value;
+    notifyListeners();
+    await _persist();
+  }
+  Future<void> setOtkenEnabled(bool value) async {
+    _otkenEnabled = value;
+    notifyListeners();
+    await _persist();
+  }
 
   Future<void> _apply({required String id, required Color color, required AppThemeMode mode}) async {
     _activeThemeId = id; _accent = color; _mode = mode;
@@ -89,6 +105,8 @@ class SettingsController extends ChangeNotifier {
     await p.setStringList('theme.customs', _customThemes.map((t) => jsonEncode(t.toJson())).toList());
     await p.setString('locale', _locale.languageCode);
     await p.setBool('showHidden', _showHidden);
+    await p.setBool('showPreviews', _showPreviews);
+    await p.setBool('otkenEnabled', _otkenEnabled);
   }
 
   ThemeData buildTheme() {
