@@ -15,11 +15,13 @@ import '../../settings/ui/about_dialog.dart';
 import '../../settings/ui/settings_dialog.dart';
 import '../../settings/ui/theme_dialog.dart';
 import '../data/models/file_entry.dart';
+import '../data/services/file_search_service.dart';
 import '../data/services/file_system_service.dart';
 import '../state/pane_controller.dart';
 import 'batch_rename_dialog.dart';
 import 'date_editor_dialog.dart';
 import 'file_dialogs.dart';
+import 'file_search_dialog.dart';
 import 'widgets/file_pane.dart';
 
 class HomePage extends StatefulWidget {
@@ -31,6 +33,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _fs = FileSystemService();
   final _platform = createPlatformService();
+  late final _searchService = FileSearchService(platform: _platform);
   late final PaneController _left;
   late final PaneController _right;
   int _activePane = 0;
@@ -74,6 +77,29 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     await pane.cd(path);
+  }
+
+  Future<void> _searchFiles() async {
+    final result = await showDialog<SearchResult>(
+      context: context,
+      builder: (_) => FileSearchDialog(
+        service: _searchService,
+        locale: context.read<SettingsController>().locale,
+      ),
+    );
+    if (result == null) return;
+    final pane = _active;
+    if (result.isDirectory) {
+      await pane.cd(result.path);
+      return;
+    }
+    await pane.cd(p.dirname(result.path));
+    for (final entry in pane.entries) {
+      if (entry.path == result.path) {
+        pane.selectOnly(entry);
+        break;
+      }
+    }
   }
 
   Future<void> _open(FileEntry entry, PaneController pane) async {
@@ -335,6 +361,8 @@ class _HomePageState extends State<HomePage> {
             _active.selectAll(),
         const SingleActivator(LogicalKeyboardKey.keyM, control: true): () =>
             _batchRename(_active),
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            _searchFiles,
       },
       child: Focus(
         autofocus: true,
@@ -355,6 +383,11 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             actions: [
+              IconButton(
+                tooltip: tr(context, 'quick_search'),
+                icon: const Icon(Icons.search),
+                onPressed: _searchFiles,
+              ),
               if (settings.otkenEnabled)
                 IconButton(
                   tooltip: tr(context, 'otken_title'),

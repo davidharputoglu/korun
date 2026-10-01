@@ -17,7 +17,11 @@ avec des aperçus de fichiers indépendants dans chaque panneau.
 - Thèmes clair, sombre et noir OLED, couleurs d’accent prédéfinies et thèmes
   personnalisés ; 12 langues, dont le français, l’anglais et le turc.
 - Affichage des fichiers cachés, vues liste/grille, tri, raccourcis clavier,
-  édition des dates et historique Ötken des snapshots.
+  édition des dates, recherche rapide indexée (`Ctrl+F`) dans les disques
+  accessibles et historique Ötken des snapshots.
+- Filtres de recherche combinables : nom, chemin, extension, catégorie de
+  fichier, taille et date de modification. Les emplacements réseau non montés
+  peuvent être ajoutés depuis la fenêtre de recherche.
 - Page d’informations légales intégrée : elle affiche les licences des
   dépendances Flutter.
 
@@ -43,6 +47,10 @@ quel, sans garantie.
   et d’accès sont modifiables sur les deux systèmes.
 - Ötken dépend de la présence et de la configuration de snapshots sur le
   système (Btrfs ou Timeshift).
+- La première indexation de la recherche peut prendre du temps sur les gros
+  disques ou les partages réseau. Les recherches suivantes interrogent l’index
+  local; seuls les emplacements accessibles et indexés sont inclus. Réindexez
+  après avoir ajouté un disque ou modifié un partage.
 
 ### Téléchargements et publication
 La [page des releases](https://github.com/davidharputoglu/korun/releases)

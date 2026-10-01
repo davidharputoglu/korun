@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 enum QuickFolder { desktop, downloads, videos, pictures, documents, music }
 
@@ -16,6 +17,7 @@ extension QuickFolderLocalization on QuickFolder {
 abstract class PlatformService {
   String get homePath;
   Future<String?> getQuickFolderPath(QuickFolder folder);
+  Future<List<String>> searchRoots();
   bool isHidden(String path);
   Future<void> openExternal(String path);
   List<String> get snapshotRoots;
@@ -49,6 +51,9 @@ class LinuxService implements PlatformService {
         if (await Directory(configured).exists()) return configured;
       }
     }
+
+    @override
+    Future<List<String>> searchRoots() async => ['/'];
 
     final directoryName = _defaultDirectoryName(folder);
     final fallback = '$homePath/$directoryName';
@@ -87,6 +92,25 @@ class WindowsService implements PlatformService {
       if (await Directory(path).exists()) return path;
     }
     return null;
+  }
+
+  @override
+  Future<List<String>> searchRoots() async {
+    final roots = await Future.wait(
+      List.generate(26, (index) async {
+        final path = '${String.fromCharCode(65 + index)}:\\';
+        try {
+          return await Directory(path)
+                  .exists()
+                  .timeout(const Duration(seconds: 2), onTimeout: () => false)
+              ? path
+              : null;
+        } on FileSystemException {
+          return null;
+        }
+      }),
+    );
+    return roots.whereType<String>().toList();
   }
 
   @override
