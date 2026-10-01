@@ -85,7 +85,7 @@ jobs:
 
       - name: Check Linux packages
         run: |
-          ls -lh korun-linux-x64.tar.gz korun-*-x86_64.AppImage korun_*.deb korun_*.rpm
+          ls -lh korun-linux-x64.tar.gz korun-*-x86_64.AppImage korun_*.deb korun-*.rpm
 
       - uses: actions/upload-artifact@v4
         with:
@@ -94,7 +94,7 @@ jobs:
             korun-linux-x64.tar.gz
             korun-*.AppImage
             korun_*.deb
-            korun_*.rpm
+            korun-*.rpm
 
   windows:
     needs: version
