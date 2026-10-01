@@ -1,8 +1,11 @@
 name: Build and Release
 
 on:
+  pull_request:
+    branches: [main]
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 jobs:
   version:
@@ -37,17 +40,59 @@ jobs:
       - run: flutter pub get
       - run: flutter build linux --release
 
-      # Archive créée À LA RACINE du repo, sans aucun "cd" ni "../"
       - name: Package Linux tarball
         run: tar -czf korun-linux-x64.tar.gz -C build/linux/x64/release/bundle .
 
-      - name: Check tarball exists
-        run: ls -la korun-linux-x64.tar.gz
+      - name: Package Linux AppImage
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp -a build/linux/x64/release/bundle/. AppDir/usr/bin/
+          cp packaging/linux/korun.desktop AppDir/usr/share/applications/korun.desktop
+          cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/korun.png
+
+          curl -fL "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -o linuxdeploy.AppImage
+          curl -fL "https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage" -o linuxdeploy-plugin-gtk.AppImage
+          curl -fL "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage" -o linuxdeploy-plugin-appimage.AppImage
+          chmod +x linuxdeploy*.AppImage
+          export PATH="$PWD:$PATH"
+
+          ./linuxdeploy.AppImage --appimage-extract-and-run \
+            --appdir AppDir \
+            --desktop-file AppDir/usr/share/applications/korun.desktop \
+            --icon-file assets/icon.png \
+            --plugin gtk \
+            --output appimage
+          appimage="$(find . -maxdepth 1 -name '*.AppImage' ! -name 'linuxdeploy*' -print -quit)"
+          test -n "$appimage"
+          mv "$appimage" "korun-${VERSION}-x86_64.AppImage"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Build Debian and RPM packages
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.41.3
+          "$HOME/go/bin/nfpm" pkg --config packaging/linux/nfpm.yaml --packager deb --target .
+          "$HOME/go/bin/nfpm" pkg --config packaging/linux/nfpm.yaml --packager rpm --target .
+
+      - name: Check Linux packages
+        run: |
+          ls -lh korun-linux-x64.tar.gz korun-*-x86_64.AppImage korun_*.deb korun_*.rpm
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-build
-          path: korun-linux-x64.tar.gz
+          name: linux-packages
+          path: |
+            korun-linux-x64.tar.gz
+            korun-*.AppImage
+            korun_*.deb
+            korun_*.rpm
 
   windows:
     needs: version
@@ -62,20 +107,42 @@ jobs:
       - run: flutter pub get
       - run: flutter build windows --release
 
-      - name: Package Windows zip
+      - name: Package Windows portable ZIP
         shell: pwsh
-        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath korun-windows-x64.zip
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath korun-windows-x64-portable.zip
 
-      - name: Check zip exists
+      - name: Install Inno Setup
         shell: pwsh
-        run: Get-Item korun-windows-x64.zip
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            throw "Inno Setup compiler not found at $iscc"
+          }
+          & $iscc "/DMyAppVersion=$env:APP_VERSION" packaging\windows\korun.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Check Windows packages
+        shell: pwsh
+        run: Get-Item korun-windows-x64-portable.zip, dist\korun-windows-x64-setup.exe
 
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: korun-windows-x64.zip
+          name: windows-packages
+          path: |
+            korun-windows-x64-portable.zip
+            dist/korun-windows-x64-setup.exe
 
   release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [version, linux, windows]
     runs-on: ubuntu-latest
     permissions:
@@ -95,8 +162,9 @@ jobs:
           name: Körün v${{ needs.version.outputs.version }}
           body: |
             Release **Körün v${{ needs.version.outputs.version }}**
-            - Linux (tar.gz, x64)
-            - Windows (zip, x64)
+            - Linux x64: AppImage, Debian package (.deb), RPM package (.rpm), portable archive (.tar.gz)
+            - Windows x64: installer (.exe) and portable archive (.zip)
+            - Optional Linux preview dependencies: ffmpeg for video/audio thumbnails and LibreOffice for Office documents.
           files: artifacts/*
           draft: false
           prerelease: false
