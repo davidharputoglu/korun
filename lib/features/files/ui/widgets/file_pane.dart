@@ -256,6 +256,154 @@ class _FilePaneState extends State<FilePane> {
     );
   }
 
+  Widget _compactButton({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) =>
+      SizedBox(
+        width: 32,
+        height: 32,
+        child: IconButton(
+          tooltip: tooltip,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+          icon: Icon(icon, size: 18),
+          onPressed: onPressed,
+        ),
+      );
+
+  Widget _navigationButtons(BuildContext context, PaneController controller) =>
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _compactButton(
+            tooltip: '<-',
+            icon: Icons.arrow_back,
+            onPressed: controller.canGoBack ? controller.back : null,
+          ),
+          _compactButton(
+            tooltip: '->',
+            icon: Icons.arrow_forward,
+            onPressed: controller.canGoForward ? controller.forward : null,
+          ),
+          _compactButton(
+            tooltip: '..',
+            icon: Icons.arrow_upward,
+            onPressed: controller.goUp,
+          ),
+          _compactButton(
+            tooltip: tr(context, 'refresh'),
+            icon: Icons.refresh,
+            onPressed: controller.refresh,
+          ),
+        ],
+      );
+
+  Widget _pathField(PaneController controller) => Expanded(
+        child: TextField(
+          controller: _pathCtl,
+          focusNode: _pathFocus,
+          style: const TextStyle(fontSize: 12),
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: PopupMenuButton<QuickFolder>(
+              tooltip: tr(context, 'quick_folders'),
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.folder_special, size: 18),
+              onSelected: widget.onQuickFolder,
+              itemBuilder: (context) => [
+                for (final folder in QuickFolder.values)
+                  PopupMenuItem(
+                    value: folder,
+                    child: Row(
+                      children: [
+                        Icon(_quickFolderIcon(folder), size: 18),
+                        const SizedBox(width: 8),
+                        Text(tr(context, folder.localizationKey)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 32, minHeight: 32),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => controller.cd(value),
+        ),
+      );
+
+  Widget _actionButtons(BuildContext context, PaneController controller) =>
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _compactButton(
+            tooltip: tr(context, 'new_folder'),
+            icon: Icons.create_new_folder,
+            onPressed: widget.onNewFolder,
+          ),
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: PopupMenuButton<SortBy>(
+              tooltip: tr(context, 'sort_name'),
+              padding: EdgeInsets.zero,
+              iconSize: 18,
+              onSelected: controller.setSort,
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: SortBy.name,
+                  child: Text(tr(context, 'sort_name')),
+                ),
+                PopupMenuItem(
+                  value: SortBy.size,
+                  child: Text(tr(context, 'sort_size')),
+                ),
+                PopupMenuItem(
+                  value: SortBy.date,
+                  child: Text(tr(context, 'sort_date')),
+                ),
+              ],
+              icon: const Icon(Icons.sort),
+            ),
+          ),
+          _compactButton(
+            tooltip: tr(context, 'view_mode'),
+            icon: controller.viewMode == ViewMode.list
+                ? Icons.grid_view
+                : Icons.view_list,
+            onPressed: () => controller.setViewMode(
+              controller.viewMode == ViewMode.list
+                  ? ViewMode.grid
+                  : ViewMode.list,
+            ),
+          ),
+        ],
+      );
+
+  Widget _toolbar(BuildContext context, PaneController controller) =>
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final navigation = _navigationButtons(context, controller);
+          final path = _pathField(controller);
+          final actions = _actionButtons(context, controller);
+          if (constraints.maxWidth < 420) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [navigation, path]),
+                Align(alignment: Alignment.centerRight, child: actions),
+              ],
+            );
+          }
+          return Row(children: [navigation, path, actions]);
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -273,85 +421,7 @@ class _FilePaneState extends State<FilePane> {
             color: scheme.surfaceContainerHighest
                 .withOpacity(widget.active ? 0.6 : 0.25),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            child: Row(
-              children: [
-                IconButton(
-                    tooltip: '<-',
-                    icon: const Icon(Icons.arrow_back, size: 18),
-                    onPressed: c.canGoBack ? c.back : null),
-                IconButton(
-                    tooltip: '->',
-                    icon: const Icon(Icons.arrow_forward, size: 18),
-                    onPressed: c.canGoForward ? c.forward : null),
-                IconButton(
-                    tooltip: '..',
-                    icon: const Icon(Icons.arrow_upward, size: 18),
-                    onPressed: c.goUp),
-                IconButton(
-                    tooltip: tr(context, 'refresh'),
-                    icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: c.refresh),
-                Expanded(
-                  child: TextField(
-                    controller: _pathCtl,
-                    focusNode: _pathFocus,
-                    style: const TextStyle(fontSize: 12),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: PopupMenuButton<QuickFolder>(
-                        tooltip: tr(context, 'quick_folders'),
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.folder_special, size: 18),
-                        onSelected: widget.onQuickFolder,
-                        itemBuilder: (context) => [
-                          for (final folder in QuickFolder.values)
-                            PopupMenuItem(
-                              value: folder,
-                              child: Row(
-                                children: [
-                                  Icon(_quickFolderIcon(folder), size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(tr(context, folder.localizationKey)),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                      prefixIconConstraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (v) => c.cd(v),
-                  ),
-                ),
-                IconButton(
-                    tooltip: tr(context, 'new_folder'),
-                    icon: const Icon(Icons.create_new_folder, size: 18),
-                    onPressed: widget.onNewFolder),
-                PopupMenuButton<SortBy>(
-                  icon: const Icon(Icons.sort, size: 18),
-                  onSelected: c.setSort,
-                  itemBuilder: (_) => [
-                    PopupMenuItem(value: SortBy.name, child: Text(tr(context, 'sort_name'))),
-                    PopupMenuItem(value: SortBy.size, child: Text(tr(context, 'sort_size'))),
-                    PopupMenuItem(value: SortBy.date, child: Text(tr(context, 'sort_date'))),
-                  ],
-                ),
-                IconButton(
-                  icon: Icon(
-                      c.viewMode == ViewMode.list
-                          ? Icons.grid_view
-                          : Icons.view_list,
-                      size: 18),
-                  onPressed: () => c.setViewMode(
-                      c.viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list),
-                ),
-              ],
-            ),
+            child: _toolbar(context, c),
           ),
           const Divider(height: 1),
           Expanded(

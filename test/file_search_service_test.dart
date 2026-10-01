@@ -41,6 +41,8 @@ void main() {
     await File(p.join(tempDirectory.path, 'Documents', 'Annual Report.pdf'))
         .writeAsBytes(List<int>.filled(4096, 1));
     await File(p.join(tempDirectory.path, 'holiday.jpg')).writeAsBytes([1, 2]);
+    await File(p.join(tempDirectory.path, 'notes.txt'))
+        .writeAsString('A quick secret note.');
     searchService = FileSearchService(
       platform: _TestPlatform(tempDirectory.path),
       databasePath: p.join(tempDirectory.path, 'cache', 'search.db'),
@@ -76,5 +78,13 @@ void main() {
       searchService.search('type:unknown'),
       throwsFormatException,
     );
+  });
+
+  test('searches text file contents only when requested', () async {
+    await searchService.indexAll(onProgress: (_) {});
+
+    final results = await searchService.search('content:"quick secret"');
+
+    expect(results.map((result) => result.name), ['notes.txt']);
   });
 }

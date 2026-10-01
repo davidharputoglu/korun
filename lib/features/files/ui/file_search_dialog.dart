@@ -171,6 +171,10 @@ class _FileSearchDialogState extends State<FileSearchDialog> {
                 tr(context, 'search_syntax_help'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              Text(
+                tr(context, 'search_content_note'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               if (_progress.scanning)
                 LinearProgressIndicator(

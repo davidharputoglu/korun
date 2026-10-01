@@ -20,8 +20,9 @@ avec des aperçus de fichiers indépendants dans chaque panneau.
   édition des dates, recherche rapide indexée (`Ctrl+F`) dans les disques
   accessibles et historique Ötken des snapshots.
 - Filtres de recherche combinables : nom, chemin, extension, catégorie de
-  fichier, taille et date de modification. Les emplacements réseau non montés
-  peuvent être ajoutés depuis la fenêtre de recherche.
+  fichier, taille et date de modification; recherche `content:` dans les
+  fichiers texte jusqu’à 1 Mio. Les emplacements réseau non montés peuvent
+  être ajoutés depuis la fenêtre de recherche.
 - Page d’informations légales intégrée : elle affiche les licences des
   dépendances Flutter.
 

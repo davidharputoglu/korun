@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 
@@ -38,6 +39,14 @@ class SearchProgress {
 }
 
 class FileSearchService {
+  static const _searchableTextExtensions = {
+    '.txt', '.md', '.csv', '.tsv', '.json', '.yaml', '.yml', '.xml', '.html',
+    '.htm', '.css', '.js', '.jsx', '.ts', '.tsx', '.dart', '.py', '.sh',
+    '.bat', '.ps1', '.log', '.ini', '.conf', '.sql', '.rs', '.go', '.java',
+    '.kt',
+  };
+  static const _contentSearchByteLimit = 1024 * 1024;
+
   FileSearchService({
     required PlatformService platform,
     String? databasePath,
@@ -301,6 +310,7 @@ class FileSearchService {
     final database = await _openDatabase();
     final clauses = <String>[];
     final arguments = <Object>[];
+    final contentTerms = <String>[];
     for (final term in _tokenize(query)) {
       final separator = term.indexOf(':');
       if (separator < 0) {
@@ -312,6 +322,8 @@ class FileSearchService {
       final value = term.substring(separator + 1);
       if (value.isEmpty) throw FormatException('Missing value for $key:');
       switch (key) {
+        case 'content':
+          contentTerms.add(value.toLowerCase());
         case 'name':
           clauses.add('instr(name_lower, ?) > 0');
           arguments.add(value.toLowerCase());
@@ -354,28 +366,80 @@ class FileSearchService {
       }
     }
 
+    if (contentTerms.isNotEmpty) {
+      clauses
+        ..add('is_directory = 0')
+        ..add('size <= ?')
+        ..add('extension IN (${List.filled(_searchableTextExtensions.length, '?').join(',')})');
+      arguments
+        ..add(_contentSearchByteLimit)
+        ..addAll(_searchableTextExtensions);
+    }
     final rows = await database.query(
       'entries',
-      columns: ['path', 'name', 'is_directory', 'size', 'modified_ms'],
+      columns: [
+        'path',
+        'name',
+        'is_directory',
+        'size',
+        'modified_ms',
+        'extension',
+      ],
       where: clauses.isEmpty ? null : clauses.join(' AND '),
       whereArgs: arguments,
       orderBy: 'name_lower',
-      limit: limit,
+      limit: contentTerms.isEmpty ? limit : 5000,
     );
-    return rows
-        .map(
-          (row) => SearchResult(
-            path: row['path']! as String,
-            name: row['name']! as String,
-            isDirectory: row['is_directory']! == 1,
-            size: row['size']! as int,
-            modified: DateTime.fromMillisecondsSinceEpoch(
-              row['modified_ms']! as int,
-            ),
-          ),
-        )
-        .toList();
+    final matches = <Map<String, Object?>>[];
+    if (contentTerms.isEmpty) {
+      matches.addAll(rows);
+    } else {
+      for (var i = 0; i < rows.length; i += 8) {
+        final chunk = rows.skip(i).take(8).toList();
+        final found = await Future.wait(
+          chunk.map((row) async {
+            try {
+              return await _containsContent(
+                row['path']! as String,
+                contentTerms,
+              )
+                  ? row
+                  : null;
+            } on FileSystemException {
+              return null;
+            } on TimeoutException {
+              return null;
+            }
+          }),
+        );
+        matches.addAll(found.whereType<Map<String, Object?>>());
+        if (matches.length > limit) break;
+      }
+    }
+    return matches.take(limit).map(_toSearchResult).toList();
   }
+
+  Future<bool> _containsContent(String path, List<String> terms) async {
+    final bytes = await File(path)
+        .openRead(0, _contentSearchByteLimit)
+        .fold<List<int>>(<int>[], (collected, chunk) {
+      collected.addAll(chunk);
+      return collected;
+    }).timeout(const Duration(seconds: 5));
+    final text = utf8.decode(bytes, allowMalformed: true).toLowerCase();
+    if (text.contains('\u0000')) return false;
+    return terms.every(text.contains);
+  }
+
+  SearchResult _toSearchResult(Map<String, Object?> row) => SearchResult(
+        path: row['path']! as String,
+        name: row['name']! as String,
+        isDirectory: row['is_directory']! == 1,
+        size: row['size']! as int,
+        modified: DateTime.fromMillisecondsSinceEpoch(
+          row['modified_ms']! as int,
+        ),
+      );
 
   List<String> _tokenize(String query) {
     final terms = <String>[];
