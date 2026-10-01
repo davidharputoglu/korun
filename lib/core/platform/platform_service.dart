@@ -1,8 +1,21 @@
 import 'dart:io';
 
+enum QuickFolder { desktop, downloads, videos, pictures, documents, music }
+
+extension QuickFolderLocalization on QuickFolder {
+  String get localizationKey => switch (this) {
+        QuickFolder.desktop => 'desktop',
+        QuickFolder.downloads => 'downloads',
+        QuickFolder.videos => 'videos',
+        QuickFolder.pictures => 'pictures',
+        QuickFolder.documents => 'documents',
+        QuickFolder.music => 'music',
+      };
+}
+
 abstract class PlatformService {
   String get homePath;
-  Future<String?> getDesktopPath();
+  Future<String?> getQuickFolderPath(QuickFolder folder);
   bool isHidden(String path);
   Future<void> openExternal(String path);
   List<String> get snapshotRoots;
@@ -13,9 +26,33 @@ class LinuxService implements PlatformService {
   String get homePath => Platform.environment['HOME'] ?? '/';
 
   @override
-  Future<String?> getDesktopPath() async {
-    final desktop = '${homePath}/Desktop';
-    return await Directory(desktop).exists() ? desktop : null;
+  Future<String?> getQuickFolderPath(QuickFolder folder) async {
+    const xdgNames = {
+      QuickFolder.desktop: 'DESKTOP',
+      QuickFolder.downloads: 'DOWNLOAD',
+      QuickFolder.videos: 'VIDEOS',
+      QuickFolder.pictures: 'PICTURES',
+      QuickFolder.documents: 'DOCUMENTS',
+      QuickFolder.music: 'MUSIC',
+    };
+    final configDirectory =
+        Platform.environment['XDG_CONFIG_HOME'] ?? '$homePath/.config';
+    final configFile = File('$configDirectory/user-dirs.dirs');
+    if (await configFile.exists()) {
+      final key = xdgNames[folder]!;
+      for (final line in await configFile.readAsLines()) {
+        final match = RegExp('^XDG_${key}_DIR="(.*)"\$').firstMatch(line);
+        if (match == null) continue;
+        final configured = match.group(1)!
+            .replaceAll(r'$HOME', homePath)
+            .replaceAll(r'${HOME}', homePath);
+        if (await Directory(configured).exists()) return configured;
+      }
+    }
+
+    final directoryName = _defaultDirectoryName(folder);
+    final fallback = '$homePath/$directoryName';
+    return await Directory(fallback).exists() ? fallback : null;
   }
 
   @override
@@ -35,15 +72,17 @@ class WindowsService implements PlatformService {
   String get homePath => Platform.environment['USERPROFILE'] ?? r'C:\';
 
   @override
-  Future<String?> getDesktopPath() async {
+  Future<String?> getQuickFolderPath(QuickFolder folder) async {
+    final directoryName = _defaultDirectoryName(folder);
     final candidates = <String>[];
-    final commercialOneDrive = Platform.environment['OneDriveCommercial'];
-    final oneDrive = Platform.environment['OneDrive'];
-    if (commercialOneDrive != null) {
-      candidates.add('$commercialOneDrive\\Desktop');
+    final oneDriveVariables = [
+      Platform.environment['OneDriveCommercial'],
+      Platform.environment['OneDrive'],
+    ];
+    for (final oneDrive in oneDriveVariables) {
+      if (oneDrive != null) candidates.add('$oneDrive\\$directoryName');
     }
-    if (oneDrive != null) candidates.add('$oneDrive\\Desktop');
-    candidates.add('$homePath\\Desktop');
+    candidates.add('$homePath\\$directoryName');
     for (final path in candidates.toSet()) {
       if (await Directory(path).exists()) return path;
     }
@@ -61,6 +100,15 @@ class WindowsService implements PlatformService {
   @override
   List<String> get snapshotRoots => const []; // TODO: VSS
 }
+
+String _defaultDirectoryName(QuickFolder folder) => switch (folder) {
+      QuickFolder.desktop => 'Desktop',
+      QuickFolder.downloads => 'Downloads',
+      QuickFolder.videos => 'Videos',
+      QuickFolder.pictures => 'Pictures',
+      QuickFolder.documents => 'Documents',
+      QuickFolder.music => 'Music',
+    };
 
 PlatformService createPlatformService() =>
     Platform.isWindows ? WindowsService() : LinuxService();

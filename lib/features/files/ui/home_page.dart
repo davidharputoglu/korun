@@ -59,10 +59,18 @@ class _HomePageState extends State<HomePage> {
     _reloadBoth();
   }
 
-  Future<void> _goDesktop(PaneController pane) async {
-    final path = await _platform.getDesktopPath();
+  Future<void> _goQuickFolder(
+    PaneController pane,
+    QuickFolder folder,
+  ) async {
+    final path = await _platform.getQuickFolderPath(folder);
     if (path == null) {
-      if (mounted) _showOperationMessage(tr(context, 'desktop_not_found'));
+      if (mounted) {
+        _showOperationMessage(
+          '${tr(context, folder.localizationKey)}: '
+          '${tr(context, 'quick_folder_not_found')}',
+        );
+      }
       return;
     }
     await pane.cd(path);
@@ -427,7 +435,8 @@ class _HomePageState extends State<HomePage> {
                           onOpen: (e) => _open(e, _left),
                           onAction: (a, e) => _onAction(0, a, e),
                           onNewFolder: () => _newFolder(_left),
-                          onDesktop: () => _goDesktop(_left),
+                          onQuickFolder: (folder) =>
+                              _goQuickFolder(_left, folder),
                         ),
                       ),
                       if (settings.showPreviews)
@@ -452,7 +461,8 @@ class _HomePageState extends State<HomePage> {
                           onOpen: (e) => _open(e, _right),
                           onAction: (a, e) => _onAction(1, a, e),
                           onNewFolder: () => _newFolder(_right),
-                          onDesktop: () => _goDesktop(_right),
+                          onQuickFolder: (folder) =>
+                              _goQuickFolder(_right, folder),
                         ),
                       ),
                       if (settings.showPreviews)

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/i18n/l10n.dart';
+import '../../../../core/platform/platform_service.dart';
 import '../../../../core/utils/file_utils.dart';
 import '../../data/models/file_entry.dart';
 import '../../data/services/file_system_service.dart';
@@ -54,7 +55,7 @@ class FilePane extends StatefulWidget {
     required this.onOpen,
     required this.onAction,
     required this.onNewFolder,
-    required this.onDesktop,
+    required this.onQuickFolder,
     required this.locale,
   });
 
@@ -64,7 +65,7 @@ class FilePane extends StatefulWidget {
   final void Function(FileEntry) onOpen;
   final void Function(String action, FileEntry entry) onAction;
   final VoidCallback onNewFolder;
-  final VoidCallback onDesktop;
+  final ValueChanged<QuickFolder> onQuickFolder;
   final Locale locale;
 
   @override
@@ -297,19 +298,25 @@ class _FilePaneState extends State<FilePane> {
                     style: const TextStyle(fontSize: 12),
                     decoration: InputDecoration(
                       isDense: true,
-                      prefixIcon: Platform.isWindows
-                          ? IconButton(
-                              tooltip: tr(context, 'desktop'),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
+                      prefixIcon: PopupMenuButton<QuickFolder>(
+                        tooltip: tr(context, 'quick_folders'),
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.folder_special, size: 18),
+                        onSelected: widget.onQuickFolder,
+                        itemBuilder: (context) => [
+                          for (final folder in QuickFolder.values)
+                            PopupMenuItem(
+                              value: folder,
+                              child: Row(
+                                children: [
+                                  Icon(_quickFolderIcon(folder), size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(tr(context, folder.localizationKey)),
+                                ],
                               ),
-                              icon: const Icon(Icons.desktop_windows, size: 16),
-                              onPressed: widget.onDesktop,
-                            )
-                          : null,
+                            ),
+                        ],
+                      ),
                       prefixIconConstraints: const BoxConstraints(
                         minWidth: 32,
                         minHeight: 32,
@@ -354,6 +361,7 @@ class _FilePaneState extends State<FilePane> {
                 if (c.loading) {
                   return const Center(child: CircularProgressIndicator());
                 }
+
                 if (c.error != null) {
                   return Center(
                     child: Padding(
@@ -412,3 +420,12 @@ class _FilePaneState extends State<FilePane> {
     );
   }
 }
+
+IconData _quickFolderIcon(QuickFolder folder) => switch (folder) {
+      QuickFolder.desktop => Icons.desktop_windows,
+      QuickFolder.downloads => Icons.download,
+      QuickFolder.videos => Icons.video_library,
+      QuickFolder.pictures => Icons.image,
+      QuickFolder.documents => Icons.description,
+      QuickFolder.music => Icons.music_note,
+    };
