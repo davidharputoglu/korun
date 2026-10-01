@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Körün
+Comment=Gestionnaire de fichiers à double panneau
+Exec=korun
+Icon=korun
+Terminal=false
+Categories=Utility;FileManager;

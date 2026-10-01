@@ -23,8 +23,8 @@ dependencies:
   win32: ^5.5.0
   ffi: ^2.1.0
   mime: ^1.0.5
-  pdfrx: 1.0.90
-  archive: ^3.6.1
+  pdfrx: 2.5.0
+  archive: ^4.0.9
 
 flutter:
   uses-material-design: true
