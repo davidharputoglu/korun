@@ -41,7 +41,8 @@ Lorsqu'un tag `v*` est poussé, GitHub Actions publie les paquets Linux x64
 (`.deb`, `.rpm`, AppImage et archive portable `.tar.gz`) ainsi qu'un
 installateur Windows x64 (`.exe`) et une archive portable `.zip`. Le workflow
 peut aussi être lancé manuellement ou par une pull request pour vérifier les
-builds sans créer de release.
+builds sans créer de release. La compilation utilise Flutter 3.29.3, compatible
+avec la version actuelle de `pdfrx`.
 Les aperçus vidéo/audio nécessitent `ffmpeg`, et les aperçus Office
 nécessitent LibreOffice ; ces outils optionnels ne sont pas inclus dans les
 paquets.
