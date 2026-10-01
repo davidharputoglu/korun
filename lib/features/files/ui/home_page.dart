@@ -59,6 +59,15 @@ class _HomePageState extends State<HomePage> {
     _reloadBoth();
   }
 
+  Future<void> _goDesktop(PaneController pane) async {
+    final path = await _platform.getDesktopPath();
+    if (path == null) {
+      if (mounted) _showOperationMessage(tr(context, 'desktop_not_found'));
+      return;
+    }
+    await pane.cd(path);
+  }
+
   Future<void> _open(FileEntry entry, PaneController pane) async {
     if (entry.isDir) {
       await pane.cd(entry.path);
@@ -144,6 +153,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _paste(PaneController pane) async {
     if (_clipPaths.isEmpty) return;
+    final total = _clipPaths.length;
+    final failures = <String>[];
+    var completed = 0;
     for (final src in _clipPaths) {
       try {
         if (_isCut) {
@@ -151,10 +163,19 @@ class _HomePageState extends State<HomePage> {
         } else {
           await _fs.copyEntity(src, pane.currentPath);
         }
-      } catch (_) {}
+        completed++;
+      } catch (error) {
+        failures.add('${p.basename(src)}: $error');
+      }
     }
-    if (_isCut) _clipPaths = const [];
+    if (_isCut && failures.isEmpty) _clipPaths = const [];
     _reloadBoth();
+    if (failures.isNotEmpty) {
+      _showOperationMessage(
+        '${tr(context, 'operation_failed')} ($completed/$total)\n'
+        '${failures.take(3).join('\n')}',
+      );
+    }
   }
 
   Future<void> _delete(PaneController pane) async {
@@ -165,13 +186,24 @@ class _HomePageState extends State<HomePage> {
         : '${entries.length} éléments';
     final ok = await confirmDelete(context, label);
     if (!ok) return;
+    final failures = <String>[];
+    var deleted = 0;
     for (final e in entries) {
       try {
         await _fs.deleteEntity(e.path);
-      } catch (_) {}
+        deleted++;
+      } catch (error) {
+        failures.add('${e.name}: $error');
+      }
     }
     pane.clearSelection();
     _reloadBoth();
+    if (failures.isNotEmpty) {
+      _showOperationMessage(
+        '${tr(context, 'delete_result')}: $deleted/${entries.length}\n'
+        '${failures.take(3).join('\n')}',
+      );
+    }
   }
 
   Future<void> _rename(PaneController pane, FileEntry e) async {
@@ -179,8 +211,10 @@ class _HomePageState extends State<HomePage> {
     if (newName == null || newName.isEmpty || newName == e.name) return;
     try {
       await _fs.renameEntity(e.path, newName);
-    } catch (_) {}
-    _reloadBoth();
+      _reloadBoth();
+    } catch (error) {
+      _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
   }
 
   Future<void> _batchRename(PaneController pane) async {
@@ -192,14 +226,22 @@ class _HomePageState extends State<HomePage> {
           BatchRenameDialog(names: entries.map((e) => e.name).toList()),
     );
     if (newNames == null) return;
+    final failures = <String>[];
     for (var i = 0; i < entries.length && i < newNames.length; i++) {
       final n = newNames[i];
       if (n.isEmpty || n == entries[i].name) continue;
       try {
         await _fs.renameEntity(entries[i].path, n);
-      } catch (_) {}
+      } catch (error) {
+        failures.add('${entries[i].name}: $error');
+      }
     }
     _reloadBoth();
+    if (failures.isNotEmpty) {
+      _showOperationMessage(
+        '${tr(context, 'batch_rename')}: ${failures.take(3).join('\n')}',
+      );
+    }
   }
 
   Future<void> _newFolder(PaneController pane) async {
@@ -207,8 +249,10 @@ class _HomePageState extends State<HomePage> {
     if (name == null || name.isEmpty) return;
     try {
       await _fs.createFolder(pane.currentPath, name);
-    } catch (_) {}
-    await pane.refresh();
+      await pane.refresh();
+    } catch (error) {
+      _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
   }
 
   void _onAction(int paneIdx, String action, FileEntry entry) {
@@ -383,6 +427,7 @@ class _HomePageState extends State<HomePage> {
                           onOpen: (e) => _open(e, _left),
                           onAction: (a, e) => _onAction(0, a, e),
                           onNewFolder: () => _newFolder(_left),
+                          onDesktop: () => _goDesktop(_left),
                         ),
                       ),
                       if (settings.showPreviews)
@@ -407,6 +452,7 @@ class _HomePageState extends State<HomePage> {
                           onOpen: (e) => _open(e, _right),
                           onAction: (a, e) => _onAction(1, a, e),
                           onNewFolder: () => _newFolder(_right),
+                          onDesktop: () => _goDesktop(_right),
                         ),
                       ),
                       if (settings.showPreviews)

@@ -38,6 +38,12 @@ class L10n {
       'archive_created': 'Archive créée',
       'archive_extracted': 'Archive extraite dans',
       'operation_failed': 'Échec de l’opération',
+      'desktop': 'Bureau',
+      'desktop_not_found': 'Le dossier Bureau est introuvable.',
+      'selected': 'sélectionné(s)',
+      'selection_hint': 'Ctrl+clic : sélectionner plusieurs · Maj+clic : plage · Ctrl+A : tout sélectionner · Ctrl+M : renommer en lot',
+      'folder_access_failed': 'Impossible de lire ce dossier',
+      'delete_result': 'Suppression partielle',
       'video_preview_unavailable':
           'Miniature indisponible. Installez ffmpeg pour créer un aperçu.',
       'audio_preview_unavailable':
@@ -57,6 +63,12 @@ class L10n {
       'archive_created': 'Archive created',
       'archive_extracted': 'Archive extracted to',
       'operation_failed': 'Operation failed',
+      'desktop': 'Desktop',
+      'desktop_not_found': 'The Desktop folder could not be found.',
+      'selected': 'selected',
+      'selection_hint': 'Ctrl+click: select multiple · Shift+click: range · Ctrl+A: select all · Ctrl+M: batch rename',
+      'folder_access_failed': 'Could not read this folder',
+      'delete_result': 'Partial deletion',
       'video_preview_unavailable':
           'Thumbnail unavailable. Install ffmpeg to generate a preview.',
       'audio_preview_unavailable':
@@ -76,6 +88,12 @@ class L10n {
       'archive_created': 'Arşiv oluşturuldu',
       'archive_extracted': 'Arşiv çıkarıldı:',
       'operation_failed': 'İşlem başarısız',
+      'desktop': 'Masaüstü',
+      'desktop_not_found': 'Masaüstü klasörü bulunamadı.',
+      'selected': 'seçili',
+      'selection_hint': 'Ctrl+tıklama: çoklu seçim · Shift+tıklama: aralık · Ctrl+A: tümünü seç · Ctrl+M: toplu yeniden adlandır',
+      'folder_access_failed': 'Bu klasör okunamadı',
+      'delete_result': 'Kısmi silme',
       'video_preview_unavailable':
           'Küçük resim kullanılamıyor. Önizleme oluşturmak için ffmpeg yükleyin.',
       'audio_preview_unavailable':

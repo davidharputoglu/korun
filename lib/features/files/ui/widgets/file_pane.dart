@@ -54,6 +54,7 @@ class FilePane extends StatefulWidget {
     required this.onOpen,
     required this.onAction,
     required this.onNewFolder,
+    required this.onDesktop,
     required this.locale,
   });
 
@@ -63,6 +64,7 @@ class FilePane extends StatefulWidget {
   final void Function(FileEntry) onOpen;
   final void Function(String action, FileEntry entry) onAction;
   final VoidCallback onNewFolder;
+  final VoidCallback onDesktop;
   final Locale locale;
 
   @override
@@ -293,8 +295,25 @@ class _FilePaneState extends State<FilePane> {
                     controller: _pathCtl,
                     focusNode: _pathFocus,
                     style: const TextStyle(fontSize: 12),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
+                      prefixIcon: Platform.isWindows
+                          ? IconButton(
+                              tooltip: tr(context, 'desktop'),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              icon: const Icon(Icons.desktop_windows, size: 16),
+                              onPressed: widget.onDesktop,
+                            )
+                          : null,
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       border: OutlineInputBorder(),
@@ -335,6 +354,17 @@ class _FilePaneState extends State<FilePane> {
                 if (c.loading) {
                   return const Center(child: CircularProgressIndicator());
                 }
+                if (c.error != null) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: SelectableText(
+                        '${tr(context, 'folder_access_failed')}\n${c.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
                 if (c.entries.isEmpty) {
                   return const Center(child: Icon(Icons.folder_open, size: 48));
                 }
@@ -357,6 +387,26 @@ class _FilePaneState extends State<FilePane> {
               },
             ),
           ),
+            ListenableBuilder(
+              listenable: c,
+              builder: (context, _) {
+                if (c.entries.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text(
+                    '${c.selection.length} ${tr(context, 'selected')} · '
+                    '${tr(context, 'selection_hint')}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
