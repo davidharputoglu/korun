@@ -16,7 +16,7 @@ contents:
       mode: 0755
   - src: packaging/linux/korun.desktop
     dst: /usr/share/applications/korun.desktop
-  - src: assets/icon.png
+  - src: build/korun-icon.png
     dst: /usr/share/icons/hicolor/256x256/apps/korun.png
 depends:
   - libc6
