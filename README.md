@@ -33,11 +33,13 @@ Gestionnaire de fichiers double panneau à aperçus réels, pour Linux et Window
 
 ## Règle de versionnage
 Le mainteneur annonce la version de base (ex. 0.6) ; les correctifs sont
-numérotés 0.6.1, 0.6.2, … Le workflow GitHub Actions lit `pubspec.yaml`
-pour nommer automatiquement chaque release.
+numérotés 0.6.1, 0.6.2, … Pour publier une version, mettre à jour la version
+dans `pubspec.yaml`, fusionner le changement dans `main`, puis pousser un tag
+Git correspondant (`v0.6.9` pour la version `0.6.9+1`). Le workflow GitHub
+Actions construit les paquets et les attache durablement à une GitHub Release.
 
 ## Paquets de release
-Lorsqu'un tag `v*` est poussé, GitHub Actions publie les paquets Linux x64
+Lorsqu'un tag `v*` est poussé sur `main`, GitHub Actions publie les paquets Linux x64
 (`.deb`, `.rpm`, AppImage et archive portable `.tar.gz`) ainsi qu'un
 installateur Windows x64 (`.exe`) et une archive portable `.zip`. Le workflow
 peut aussi être lancé manuellement ou par une pull request pour vérifier les

@@ -1,7 +1,7 @@
 name: korun
 description: Gestionnaire de fichiers double panneau à aperçus réels (Linux & Windows).
 publish_to: 'none'
-version: 0.6.8+1
+version: 0.6.9+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
