@@ -299,23 +299,16 @@ class FileSystemService {
     if (!archivePath.toLowerCase().endsWith('.zip')) {
       throw FileSystemException('Only ZIP archives are supported.', archivePath);
     }
-    final outputPath =
-        p.join(p.dirname(archivePath), p.basenameWithoutExtension(archivePath));
-    if (await FileSystemEntity.type(
-          outputPath,
-          followLinks: false,
-        ) !=
-        FileSystemEntityType.notFound) {
-      throw FileSystemException('The extraction folder already exists.', outputPath);
-    }
+    final parentPath = p.dirname(archivePath);
+    final archiveName = p.basenameWithoutExtension(archivePath);
+    var outputPath = await _availableExtractionPath(parentPath, archiveName);
 
     final input = InputFileStream(archivePath);
     Directory? staging;
     try {
       final archive = ZipDecoder().decodeStream(input);
-      staging = await Directory(
-        p.join(p.dirname(outputPath), '.korun-extract-'),
-      ).createTemp();
+      staging =
+          await Directory(parentPath).createTemp('.korun-extract-');
       for (final entry in archive) {
         final normalizedName = entry.name.replaceAll('\\', '/');
         final segments = normalizedName.split('/');
@@ -351,13 +344,7 @@ class FileSystemService {
           }
         }
       }
-      if (await FileSystemEntity.type(outputPath, followLinks: false) !=
-          FileSystemEntityType.notFound) {
-        throw FileSystemException(
-          'The extraction folder already exists.',
-          outputPath,
-        );
-      }
+      outputPath = await _availableExtractionPath(parentPath, archiveName);
       await staging.rename(outputPath);
     } catch (_) {
       if (staging != null && await staging.exists()) {
@@ -368,6 +355,20 @@ class FileSystemService {
       await input.close();
     }
     return outputPath;
+  }
+
+  Future<String> _availableExtractionPath(
+    String parentPath,
+    String archiveName,
+  ) async {
+    var candidate = p.join(parentPath, archiveName);
+    var suffix = 1;
+    while (await FileSystemEntity.type(candidate, followLinks: false) !=
+        FileSystemEntityType.notFound) {
+      candidate = p.join(parentPath, '$archiveName ($suffix)');
+      suffix++;
+    }
+    return candidate;
   }
 
   Future<void> copyEntity(String src, String destDir) async {

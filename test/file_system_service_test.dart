@@ -70,10 +70,12 @@ void main() {
       ..addFile(ArchiveFile('item.txt', 4, 'data'.codeUnits));
     await File(bundlePath).writeAsBytes(ZipEncoder().encode(bundle));
 
-    await expectLater(
-      fileSystem.extractZip(bundlePath),
-      throwsA(isA<FileSystemException>()),
-    );
+    final extractedPath = await fileSystem.extractZip(bundlePath);
     expect(await marker.readAsString(), 'keep folder');
+    expect(p.basename(extractedPath), 'bundle (1)');
+    expect(
+      await File(p.join(extractedPath, 'item.txt')).readAsString(),
+      'data',
+    );
   });
 }
