@@ -52,13 +52,13 @@ class LinuxService implements PlatformService {
       }
     }
 
-    @override
-    Future<List<String>> searchRoots() async => ['/'];
-
     final directoryName = _defaultDirectoryName(folder);
     final fallback = '$homePath/$directoryName';
     return await Directory(fallback).exists() ? fallback : null;
   }
+
+  @override
+  Future<List<String>> searchRoots() async => ['/'];
 
   @override
   bool isHidden(String path) => path.split('/').last.startsWith('.');
