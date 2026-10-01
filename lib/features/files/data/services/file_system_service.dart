@@ -377,20 +377,6 @@ class FileSystemService {
     } else {
       await File(src).copy(dest);
     }
-
-    class _DesktopEntry {
-      const _DesktopEntry({
-        required this.name,
-        required this.mimeTypes,
-        required this.hidden,
-        required this.noDisplay,
-      });
-
-      final String name;
-      final List<String> mimeTypes;
-      final bool hidden;
-      final bool noDisplay;
-    }
   }
 
   Future<void> _copyDir(Directory src, Directory dest) async {
@@ -437,4 +423,18 @@ class FileSystemService {
   Future<void> createFolder(String dir, String name) async {
     await Directory(p.join(dir, name)).create(recursive: true);
   }
+}
+
+class _DesktopEntry {
+  const _DesktopEntry({
+    required this.name,
+    required this.mimeTypes,
+    required this.hidden,
+    required this.noDisplay,
+  });
+
+  final String name;
+  final List<String> mimeTypes;
+  final bool hidden;
+  final bool noDisplay;
 }
