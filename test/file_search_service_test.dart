@@ -21,6 +21,12 @@ class _TestPlatform implements PlatformService {
   Future<List<String>> searchRoots() async => [root];
 
   @override
+  Future<String> createDesktopShortcut(String targetPath) async => targetPath;
+
+  @override
+  Future<void> composeEmail(List<String> attachments) async {}
+
+  @override
   bool isHidden(String path) => false;
 
   @override
