@@ -180,6 +180,7 @@ class _HomePageState extends State<HomePage> {
         p.join(pane.currentPath, archiveName),
         format: request.format,
         engine: request.engine,
+        compressionLevel: request.compressionLevel,
       );
       await pane.refresh();
       if (mounted) _showOperationMessage(

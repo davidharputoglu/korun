@@ -15,7 +15,10 @@ previews alongside each pane.
   cut, paste, rename, delete, properties, and creation of ZIP, TAR, TAR.GZ,
   TAR.BZ2, TAR.XZ, and standalone GZIP/BZIP2/XZ files. If 7-Zip or WinRAR/RAR
   is installed, it can also create 7z or RAR archives. Körün offers a choice
-  between its built-in encoder and each detected external archiver.
+  between its built-in encoder and each detected external archiver, with a
+  compression-level control where the selected format and encoder support it.
+  TAR is uncompressed; the built-in BZIP2 and XZ encoders use fixed levels, so
+  choose 7-Zip to adjust compression for those formats.
 - Safe extraction of ZIP/CBZ and TAR variants, standalone GZIP/BZIP2/XZ
   decompression, and extraction of 7z/RAR using compatible installed tools.
 - Light, dark, and OLED-black themes; preset accent colors and custom themes;
@@ -94,7 +97,10 @@ avec des aperçus indépendants à côté de chaque panneau.
   couper, coller, renommer, supprimer, afficher les propriétés et créer des
   archives ZIP, TAR, TAR.GZ, TAR.BZ2, TAR.XZ et des fichiers GZIP/BZIP2/XZ
   autonomes. Si 7-Zip ou WinRAR/RAR est installé, Körün peut aussi créer des
-  archives 7z ou RAR et propose le choix entre Körün et les outils détectés.
+  archives 7z ou RAR et propose le choix entre Körün et les outils détectés,
+  ainsi qu’un niveau de compression réglable lorsque le format et l’outil le
+  permettent. TAR n’est pas compressé ; les encodeurs BZIP2 et XZ intégrés à
+  Körün utilisent un niveau fixe. Choisissez 7-Zip pour le régler.
 - Extraction sécurisée de ZIP/CBZ et des variantes TAR, décompression GZIP,
   BZIP2 et XZ autonomes, et extraction 7z/RAR avec un outil compatible installé.
 - Thèmes clair, sombre et noir OLED, couleurs d’accent prédéfinies et thèmes
@@ -179,7 +185,10 @@ sunan çift panelli bir dosya yöneticisidir.
   yeniden adlandırma, silme, özellikleri görüntüleme ve ZIP, TAR, TAR.GZ,
   TAR.BZ2, TAR.XZ arşivleri ile bağımsız GZIP/BZIP2/XZ dosyaları oluşturma.
   7-Zip veya WinRAR/RAR kuruluysa 7z ya da RAR arşivleri de oluşturulabilir ve
-  Körün ile algılanan araçlar arasında seçim sunulur.
+  Körün ile algılanan araçlar arasında seçim sunulur; biçim ve araç
+  desteklediğinde sıkıştırma düzeyi de ayarlanabilir. TAR sıkıştırılmayan bir
+  biçimdir; Körün’ün yerleşik BZIP2 ve XZ kodlayıcıları sabit düzey kullanır.
+  Bu biçimlerin düzeyini ayarlamak için 7-Zip’i seçin.
 - ZIP/CBZ ve TAR çeşitlerini güvenli çıkarma, bağımsız GZIP/BZIP2/XZ dosyalarını
   açma ve uyumlu araçlar kuruluysa 7z/RAR arşivlerini çıkarma.
 - Açık, koyu ve OLED siyah temalar; hazır vurgu renkleri ve özel temalar;

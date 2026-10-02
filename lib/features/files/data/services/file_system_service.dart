@@ -45,6 +45,9 @@ enum ArchiveFormat {
         ArchiveFormat.rar => throw UnsupportedError(
             'RAR creation requires WinRAR or the RAR command-line tool.',
           ),
+        ArchiveFormat.tarGzip => 'gzip',
+        ArchiveFormat.tarBzip2 => 'bzip2',
+        ArchiveFormat.tarXz => 'xz',
         ArchiveFormat.gzip => 'gzip',
         ArchiveFormat.bzip2 => 'bzip2',
         ArchiveFormat.xz => 'xz',
@@ -52,6 +55,24 @@ enum ArchiveFormat {
             '7-Zip does not create ${extension} archives via a single pass.',
           ),
       };
+
+  bool supportsCompressionLevel(CompressionEngine engine) {
+    if (this == ArchiveFormat.tar) return false;
+    if (engine == CompressionEngine.winRar) return this == ArchiveFormat.rar;
+    if (engine == CompressionEngine.sevenZip) return true;
+    return switch (this) {
+      ArchiveFormat.zip ||
+      ArchiveFormat.tarGzip ||
+      ArchiveFormat.gzip => true,
+      ArchiveFormat.tarBzip2 ||
+      ArchiveFormat.tarXz ||
+      ArchiveFormat.bzip2 ||
+      ArchiveFormat.xz ||
+      ArchiveFormat.sevenZip ||
+      ArchiveFormat.rar ||
+      ArchiveFormat.tar => false,
+    };
+  }
 }
 
 enum CompressionEngine { korun, sevenZip, winRar }
@@ -260,9 +281,13 @@ class FileSystemService {
     String archivePath, {
     required ArchiveFormat format,
     CompressionEngine engine = CompressionEngine.korun,
+    int compressionLevel = 5,
   }) async {
     if (paths.isEmpty) {
       throw ArgumentError('Select at least one file or folder.');
+    }
+    if (compressionLevel < 0 || compressionLevel > 9) {
+      throw RangeError.range(compressionLevel, 0, 9, 'compressionLevel');
     }
     if (!archivePath.toLowerCase().endsWith(format.extension)) {
       throw ArgumentError.value(
@@ -280,13 +305,18 @@ class FileSystemService {
     }
 
     if (engine == CompressionEngine.sevenZip) {
-      return _compressWithSevenZip(paths, archivePath, format);
+      return _compressWithSevenZip(
+        paths,
+        archivePath,
+        format,
+        compressionLevel,
+      );
     }
     if (engine == CompressionEngine.winRar) {
       if (format != ArchiveFormat.rar) {
         throw UnsupportedError('WinRAR is used for RAR archive creation.');
       }
-      return _compressWithWinRar(paths, archivePath);
+      return _compressWithWinRar(paths, archivePath, compressionLevel);
     }
     if (format == ArchiveFormat.sevenZip) {
       throw UnsupportedError('7z archive creation requires 7-Zip.');
@@ -297,12 +327,22 @@ class FileSystemService {
     if (format == ArchiveFormat.gzip ||
         format == ArchiveFormat.bzip2 ||
         format == ArchiveFormat.xz) {
-      return _compressStandalone(paths, archivePath, format);
+      return _compressStandalone(
+        paths,
+        archivePath,
+        format,
+        compressionLevel,
+      );
     }
     if (format != ArchiveFormat.zip) {
-      return _compressTarArchive(paths, archivePath, format);
+      return _compressTarArchive(
+        paths,
+        archivePath,
+        format,
+        compressionLevel,
+      );
     }
-    return _compressZipArchive(paths, archivePath);
+    return _compressZipArchive(paths, archivePath, compressionLevel);
   }
 
   static Future<String?> findSevenZipExecutable() async {
@@ -359,6 +399,7 @@ class FileSystemService {
     List<String> paths,
     String archivePath,
     ArchiveFormat format,
+    int compressionLevel,
   ) async {
     final executable = await findSevenZipExecutable();
     if (executable == null) {
@@ -370,10 +411,31 @@ class FileSystemService {
     final stagedArchive = p.join(staging.path, 'archive${format.extension}');
     final inputs = _externalArchiveInputs(paths);
     try {
+      var inputsForArchive = inputs.paths;
+      var workingDirectory = inputs.workingDirectory;
+      if (format == ArchiveFormat.tarGzip ||
+          format == ArchiveFormat.tarBzip2 ||
+          format == ArchiveFormat.tarXz) {
+        final tarPath = p.join(staging.path, 'payload.tar');
+        await _compressTarArchive(
+          paths,
+          tarPath,
+          ArchiveFormat.tar,
+          compressionLevel,
+        );
+        inputsForArchive = [tarPath];
+        workingDirectory = staging.path;
+      }
       final result = await Process.run(
         executable,
-        ['a', '-t$type', stagedArchive, ...inputs.paths],
-        workingDirectory: inputs.workingDirectory,
+        [
+          'a',
+          '-t$type',
+          '-mx=$compressionLevel',
+          stagedArchive,
+          ...inputsForArchive,
+        ],
+        workingDirectory: workingDirectory,
       );
       if (result.exitCode != 0) {
         throw FileSystemException(
@@ -395,6 +457,7 @@ class FileSystemService {
   Future<String> _compressWithWinRar(
     List<String> paths,
     String archivePath,
+    int compressionLevel,
   ) async {
     final executable = await findWinRarExecutable();
     if (executable == null) {
@@ -408,7 +471,13 @@ class FileSystemService {
     try {
       final result = await Process.run(
         executable,
-        ['a', '-r', stagedArchive, ...inputs.paths],
+        [
+          'a',
+          '-r',
+          '-m${(compressionLevel * 5 / 9).round()}',
+          stagedArchive,
+          ...inputs.paths,
+        ],
         workingDirectory: inputs.workingDirectory,
       );
       if (result.exitCode != 0) {
@@ -450,6 +519,7 @@ class FileSystemService {
     List<String> paths,
     String archivePath,
     ArchiveFormat format,
+    int compressionLevel,
   ) async {
     if (paths.length != 1 ||
         await FileSystemEntity.type(paths.single, followLinks: false) !=
@@ -460,7 +530,8 @@ class FileSystemService {
     }
     final contents = await File(paths.single).readAsBytes();
     final compressed = switch (format) {
-      ArchiveFormat.gzip => GZipEncoder().encode(contents),
+      ArchiveFormat.gzip =>
+        GZipEncoder().encode(contents, level: compressionLevel),
       ArchiveFormat.bzip2 => BZip2Encoder().encode(contents),
       ArchiveFormat.xz => XZEncoder().encode(contents),
       _ => throw ArgumentError.value(format, 'format'),
@@ -479,6 +550,7 @@ class FileSystemService {
   Future<String> _compressZipArchive(
     List<String> paths,
     String archivePath,
+    int compressionLevel,
   ) async {
     final output = File(archivePath);
     await output.create(exclusive: true);
@@ -486,7 +558,7 @@ class FileSystemService {
     final encoder = ZipEncoder();
     try {
       outputStream = OutputFileStream(archivePath);
-      encoder.startEncode(outputStream);
+      encoder.startEncode(outputStream, level: compressionLevel);
       for (final sourcePath in paths) {
         final sourceName = p.basename(sourcePath);
         final type =
@@ -520,6 +592,7 @@ class FileSystemService {
     List<String> paths,
     String archivePath,
     ArchiveFormat format,
+    int compressionLevel,
   ) async {
     final archive = Archive();
     final inputStreams = <InputFileStream>[];
@@ -568,7 +641,8 @@ class FileSystemService {
 
       final tarBytes = TarEncoder().encode(archive);
       final bytes = switch (format) {
-        ArchiveFormat.tarGzip => GZipEncoder().encode(tarBytes),
+        ArchiveFormat.tarGzip =>
+          GZipEncoder().encode(tarBytes, level: compressionLevel),
         ArchiveFormat.tarBzip2 => BZip2Encoder().encode(tarBytes),
         ArchiveFormat.tarXz => XZEncoder().encode(tarBytes),
         ArchiveFormat.zip ||

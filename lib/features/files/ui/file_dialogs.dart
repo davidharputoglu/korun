@@ -10,11 +10,13 @@ class ArchiveCreationRequest {
     required this.name,
     required this.format,
     required this.engine,
+    required this.compressionLevel,
   });
 
   final String name;
   final ArchiveFormat format;
   final CompressionEngine engine;
+  final int compressionLevel;
 }
 
 Future<ArchiveCreationRequest?> askArchiveName(
@@ -47,6 +49,7 @@ class _ArchiveNameDialogState extends State<_ArchiveNameDialog> {
   late final TextEditingController _controller;
   ArchiveFormat _format = ArchiveFormat.zip;
   CompressionEngine _engine = CompressionEngine.korun;
+  int _compressionLevel = 5;
   bool _checkingArchivers = true;
   final Map<CompressionEngine, String?> _engineExecutables = {
     CompressionEngine.korun: null,
@@ -87,68 +90,100 @@ class _ArchiveNameDialogState extends State<_ArchiveNameDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
         title: Text(tr(context, 'compress')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: tr(context, 'archive_name'),
-                suffixText: _format.extension,
-              ),
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 12),
-            if (_engineExecutables.length > 1) ...[
-              DropdownButtonFormField<CompressionEngine>(
-                value: _engine,
-                decoration: InputDecoration(
-                  labelText: tr(context, 'compression_method'),
-                ),
-                items: [
-                  for (final engine in _engineExecutables.keys)
-                    DropdownMenuItem(
-                      value: engine,
-                      child: Text(
-                        tr(
-                          context,
-                          switch (engine) {
-                            CompressionEngine.korun =>
-                              'compression_method_korun',
-                            CompressionEngine.sevenZip =>
-                              'compression_method_7zip',
-                            CompressionEngine.winRar =>
-                              'compression_method_winrar',
-                          },
-                        ),
-                      ),
-                    ),
-                ],
-                onChanged: (engine) {
-                  if (engine == null) return;
-                  setState(() {
-                    _engine = engine;
-                    if (!_formats.contains(_format)) _format = _formats.first;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-            DropdownButtonFormField<ArchiveFormat>(
-              value: _format,
-              decoration: InputDecoration(labelText: tr(context, 'archive_format')),
-              items: [
-                for (final format in _formats)
-                  DropdownMenuItem(
-                    value: format,
-                    child: Text(tr(context, format.localizationKey)),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: tr(context, 'archive_name'),
+                    suffixText: _format.extension,
                   ),
+                  onSubmitted: (_) => _submit(),
+                ),
+                const SizedBox(height: 12),
+                if (_engineExecutables.length > 1) ...[
+                  DropdownButtonFormField<CompressionEngine>(
+                    value: _engine,
+                    decoration: InputDecoration(
+                      labelText: tr(context, 'compression_method'),
+                    ),
+                    items: [
+                      for (final engine in _engineExecutables.keys)
+                        DropdownMenuItem(
+                          value: engine,
+                          child: Text(
+                            tr(
+                              context,
+                              switch (engine) {
+                                CompressionEngine.korun =>
+                                  'compression_method_korun',
+                                CompressionEngine.sevenZip =>
+                                  'compression_method_7zip',
+                                CompressionEngine.winRar =>
+                                  'compression_method_winrar',
+                              },
+                            ),
+                          ),
+                        ),
+                    ],
+                    onChanged: (engine) {
+                      if (engine == null) return;
+                      setState(() {
+                        _engine = engine;
+                        if (!_formats.contains(_format)) _format = _formats.first;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                DropdownButtonFormField<ArchiveFormat>(
+                  value: _format,
+                  decoration:
+                      InputDecoration(labelText: tr(context, 'archive_format')),
+                  items: [
+                    for (final format in _formats)
+                      DropdownMenuItem(
+                        value: format,
+                        child: Text(tr(context, format.localizationKey)),
+                      ),
+                  ],
+                  onChanged: (format) =>
+                      setState(() => _format = format ?? _format),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: Text(tr(context, 'compression_level'))),
+                    Text('$_compressionLevel / 9'),
+                  ],
+                ),
+                Slider(
+                  value: _compressionLevel.toDouble(),
+                  min: 0,
+                  max: 9,
+                  divisions: 9,
+                  label: '$_compressionLevel',
+                  onChanged: _supportsCompressionLevel
+                      ? (value) =>
+                          setState(() => _compressionLevel = value.round())
+                      : null,
+                ),
+                Text(
+                  _supportsCompressionLevel
+                      ? tr(context, 'compression_level_hint')
+                      : _format == ArchiveFormat.tar
+                          ? tr(context, 'tar_no_compression')
+                          : tr(context, 'compression_level_fixed'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
-              onChanged: (format) =>
-                  setState(() => _format = format ?? _format),
             ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -171,6 +206,9 @@ class _ArchiveNameDialogState extends State<_ArchiveNameDialog> {
       CompressionEngine.sevenZip => [
           ArchiveFormat.zip,
           ArchiveFormat.tar,
+          ArchiveFormat.tarGzip,
+          ArchiveFormat.tarBzip2,
+          ArchiveFormat.tarXz,
           ArchiveFormat.sevenZip,
           ArchiveFormat.gzip,
           ArchiveFormat.bzip2,
@@ -202,9 +240,17 @@ class _ArchiveNameDialogState extends State<_ArchiveNameDialog> {
     }
     Navigator.pop(
       context,
-      ArchiveCreationRequest(name: name, format: _format, engine: _engine),
+      ArchiveCreationRequest(
+        name: name,
+        format: _format,
+        engine: _engine,
+        compressionLevel: _compressionLevel,
+      ),
     );
   }
+
+  bool get _supportsCompressionLevel =>
+      _format.supportsCompressionLevel(_engine);
 }
 
 Future<String?> askRename(BuildContext context, String current) =>

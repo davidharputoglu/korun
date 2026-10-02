@@ -65,6 +65,53 @@ void main() {
     }
   });
 
+  test('applies selected compression levels to built-in ZIP and GZIP', () async {
+    final source = File(p.join(tempDirectory.path, 'repeated.txt'));
+    final contents = List.filled(1000, 'Körün compression test data. ').join();
+    await source.writeAsString(contents);
+
+    for (final level in [0, 1, 5, 9]) {
+      final zipPath = p.join(tempDirectory.path, 'level-$level.zip');
+      await fileSystem.compressToArchive(
+        [source.path],
+        zipPath,
+        format: ArchiveFormat.zip,
+        compressionLevel: level,
+      );
+      final extractedZip = await fileSystem.extractArchive(zipPath);
+      expect(await File(p.join(extractedZip, 'repeated.txt')).readAsString(),
+          contents);
+
+      final gzipPath = p.join(tempDirectory.path, 'level-$level.txt.gz');
+      await fileSystem.compressToArchive(
+        [source.path],
+        gzipPath,
+        format: ArchiveFormat.gzip,
+        compressionLevel: level,
+      );
+      final extractedGzip = await fileSystem.extractArchive(gzipPath);
+      expect(await File(extractedGzip).readAsString(), contents);
+    }
+  });
+
+  test('only reports levels for formats and engines that support them', () {
+    expect(ArchiveFormat.tar.supportsCompressionLevel(CompressionEngine.korun),
+        isFalse);
+    expect(
+      ArchiveFormat.bzip2.supportsCompressionLevel(CompressionEngine.korun),
+      isFalse,
+    );
+    expect(ArchiveFormat.xz.supportsCompressionLevel(CompressionEngine.korun),
+        isFalse);
+    expect(
+      ArchiveFormat.tarBzip2
+          .supportsCompressionLevel(CompressionEngine.sevenZip),
+      isTrue,
+    );
+    expect(ArchiveFormat.rar.supportsCompressionLevel(CompressionEngine.winRar),
+        isTrue);
+  });
+
   test('extracts TAR and supported compressed TAR variants', () async {
     final tar = Archive()
       ..addFile(ArchiveFile('folder/hello.txt', 5, 'hello'.codeUnits));
