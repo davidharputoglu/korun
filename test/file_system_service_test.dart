@@ -35,6 +35,36 @@ void main() {
     );
   });
 
+  test('creates named TAR archive formats and extracts each one', () async {
+    final source = Directory(p.join(tempDirectory.path, 'source'));
+    await Directory(p.join(source.path, 'nested')).create(recursive: true);
+    await File(p.join(source.path, 'nested', 'hello.txt'))
+        .writeAsString('hello from TAR');
+
+    final formats = {
+      ArchiveFormat.tar: 'custom.tar',
+      ArchiveFormat.tarGzip: 'custom.tar.gz',
+      ArchiveFormat.tarBzip2: 'custom.tar.bz2',
+      ArchiveFormat.tarXz: 'custom.tar.xz',
+    };
+    for (final format in formats.entries) {
+      final archivePath = p.join(tempDirectory.path, format.value);
+      await fileSystem.compressToArchive(
+        [source.path],
+        archivePath,
+        format: format.key,
+      );
+
+      final extractedPath = await fileSystem.extractArchive(archivePath);
+      expect(
+        await File(p.join(extractedPath, 'source', 'nested', 'hello.txt'))
+            .readAsString(),
+        'hello from TAR',
+        reason: 'Failed to create/extract ${format.value}',
+      );
+    }
+  });
+
   test('extracts TAR and supported compressed TAR variants', () async {
     final tar = Archive()
       ..addFile(ArchiveFile('folder/hello.txt', 5, 'hello'.codeUnits));
@@ -94,6 +124,29 @@ void main() {
       expect(p.basename(extractedPath), 'document.txt');
       expect(await File(extractedPath).readAsString(), contents);
       expect(await File(compressedPath).exists(), isTrue);
+    }
+  });
+
+  test('creates and extracts standalone GZIP, BZIP2, and XZ files', () async {
+    const contents = 'standalone compressed content';
+    final source = File(p.join(tempDirectory.path, 'notes.txt'));
+    await source.writeAsString(contents);
+    final formats = {
+      ArchiveFormat.gzip: 'notes.txt.gz',
+      ArchiveFormat.bzip2: 'notes.txt.bz2',
+      ArchiveFormat.xz: 'notes.txt.xz',
+    };
+
+    for (final format in formats.entries) {
+      final archivePath = p.join(tempDirectory.path, format.value);
+      await fileSystem.compressToArchive(
+        [source.path],
+        archivePath,
+        format: format.key,
+      );
+
+      final extractedPath = await fileSystem.extractArchive(archivePath);
+      expect(await File(extractedPath).readAsString(), contents);
     }
   });
 

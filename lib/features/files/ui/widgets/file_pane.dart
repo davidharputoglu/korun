@@ -132,6 +132,8 @@ class _FilePaneState extends State<FilePane> {
               '.tbz2',
               '.tar.xz',
               '.txz',
+              '.7z',
+              '.rar',
               '.gz',
               '.bz2',
               '.xz',

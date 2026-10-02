@@ -155,13 +155,31 @@ class _HomePageState extends State<HomePage> {
     final initialName = entries.length == 1
         ? p.basenameWithoutExtension(entries.first.name)
         : 'archive';
-    final name = await askArchiveName(context, initialName);
-    if (name == null) return;
-    final archiveName = name.toLowerCase().endsWith('.zip') ? name : '$name.zip';
+    final request = await askArchiveName(
+      context,
+      initialName,
+      allowStandaloneFormats:
+          entries.length == 1 && !entries.first.isDir,
+    );
+    if (request == null) return;
+    var baseName = request.name;
+    final existingExtension = ArchiveFormat.values
+        .map((format) => format.extension)
+        .toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    for (final extension in existingExtension) {
+      if (baseName.toLowerCase().endsWith(extension)) {
+        baseName = baseName.substring(0, baseName.length - extension.length);
+        break;
+      }
+    }
+    final archiveName = '$baseName${request.format.extension}';
     try {
-      final archivePath = await _fs.compressToZip(
+      final archivePath = await _fs.compressToArchive(
         entries.map((entry) => entry.path).toList(),
         p.join(pane.currentPath, archiveName),
+        format: request.format,
+        engine: request.engine,
       );
       await pane.refresh();
       if (mounted) _showOperationMessage(
