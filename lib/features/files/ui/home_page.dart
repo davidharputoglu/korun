@@ -12,6 +12,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../otken/ui/otken_dialog.dart';
 import '../../preview/ui/preview_panel.dart';
 import '../../settings/ui/about_dialog.dart';
+import '../../settings/ui/guide_dialog.dart';
 import '../../settings/ui/settings_dialog.dart';
 import '../../settings/ui/theme_dialog.dart';
 import '../data/models/file_entry.dart';
@@ -40,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   int _activePane = 0;
   List<String> _clipPaths = const [];
   bool _isCut = false;
+  bool _firstGuideScheduled = false;
 
   @override
   void initState() {
@@ -430,6 +432,14 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsController>();
+    if (settings.isLoaded && !_firstGuideScheduled) {
+      _firstGuideScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && context.read<SettingsController>().showFirstUseGuide) {
+          showUserGuide(context);
+        }
+      });
+    }
     final scheme = Theme.of(context).colorScheme;
     return CallbackShortcuts(
       bindings: {

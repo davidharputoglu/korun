@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/i18n/l10n.dart';
 import '../../../core/settings/settings_controller.dart';
 import 'about_dialog.dart';
+import 'guide_dialog.dart';
 import 'theme_dialog.dart';
 
 class SettingsDialog extends StatelessWidget {
@@ -64,6 +65,14 @@ class SettingsDialog extends StatelessWidget {
                 onChanged: (code) {
                   if (code != null) s.setLocale(Locale(code));
                 },
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.help_outline),
+                  label: Text(tr(context, 'guide_button')),
+                  onPressed: () => showUserGuide(context),
+                ),
               ),
               Align(
                 alignment: Alignment.centerLeft,

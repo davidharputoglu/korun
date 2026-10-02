@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/app_info.dart';
 import '../../../core/i18n/l10n.dart';
 import 'license_translation.dart';
+import 'guide_dialog.dart';
 
 const _mitLicenseText = '''
 MIT License
@@ -371,44 +372,53 @@ class _KorunAboutDialogState extends State<KorunAboutDialog> {
       ),
       content: SizedBox(
         width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Körün', style: Theme.of(context).textTheme.titleLarge),
-            Text('${tr(context, 'version')} ${AppInfo.version}'),
-            Text('${tr(context, 'author')} ${AppInfo.author}'),
-            const SizedBox(height: 8),
-            Text(tr(context, 'disclaimer'),
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.outline)),
-            const Divider(),
-            SwitchListTile(
-              dense: true,
-              title: Text(tr(context, 'auto_update')),
-              value: _autoUpdate,
-              onChanged: (v) async {
-                setState(() => _autoUpdate = v);
-                final p = await SharedPreferences.getInstance();
-                await p.setBool('autoUpdate', v);
-              },
-            ),
-            ElevatedButton.icon(
-              onPressed: _checking ? null : _checkUpdate,
-              icon: _checking
-                  ? const SizedBox(
-                      width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.system_update_alt, size: 18),
-              label: Text(tr(context, 'check_update')),
-            ),
-            const SizedBox(height: 4),
-            TextButton.icon(
-              onPressed: () => showKorunLicenses(context),
-              icon: const Icon(Icons.policy_outlined),
-              label: Text(tr(context, 'legal_information')),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Körün', style: Theme.of(context).textTheme.titleLarge),
+              Text('${tr(context, 'version')} ${AppInfo.version}'),
+              Text('${tr(context, 'author')} ${AppInfo.author}'),
+              const SizedBox(height: 8),
+              Text(tr(context, 'disclaimer'),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.outline)),
+              const Divider(),
+              SwitchListTile(
+                dense: true,
+                title: Text(tr(context, 'auto_update')),
+                value: _autoUpdate,
+                onChanged: (v) async {
+                  setState(() => _autoUpdate = v);
+                  final p = await SharedPreferences.getInstance();
+                  await p.setBool('autoUpdate', v);
+                },
+              ),
+              ElevatedButton.icon(
+                onPressed: _checking ? null : _checkUpdate,
+                icon: _checking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.system_update_alt, size: 18),
+                label: Text(tr(context, 'check_update')),
+              ),
+              const SizedBox(height: 4),
+              TextButton.icon(
+                onPressed: () => showUserGuide(context),
+                icon: const Icon(Icons.help_outline),
+                label: Text(tr(context, 'guide_button')),
+              ),
+              TextButton.icon(
+                onPressed: () => showKorunLicenses(context),
+                icon: const Icon(Icons.policy_outlined),
+                label: Text(tr(context, 'legal_information')),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
