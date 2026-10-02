@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/app_info.dart';
 import '../../../core/i18n/l10n.dart';
 import 'license_translation.dart';
-import 'guide_dialog.dart';
 
 const _mitLicenseText = '''
 MIT License
@@ -400,18 +399,11 @@ class _KorunAboutDialogState extends State<KorunAboutDialog> {
                 onPressed: _checking ? null : _checkUpdate,
                 icon: _checking
                     ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.system_update_alt, size: 18),
                 label: Text(tr(context, 'check_update')),
               ),
               const SizedBox(height: 4),
-              TextButton.icon(
-                onPressed: () => showUserGuide(context),
-                icon: const Icon(Icons.help_outline),
-                label: Text(tr(context, 'guide_button')),
-              ),
               TextButton.icon(
                 onPressed: () => showKorunLicenses(context),
                 icon: const Icon(Icons.policy_outlined),
