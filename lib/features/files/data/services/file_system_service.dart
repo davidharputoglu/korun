@@ -380,6 +380,23 @@ class FileSystemService {
     }
   }
 
+  Future<String> copyEntityUnique(String src, String destDir) async {
+    final sourceType = await FileSystemEntity.type(src, followLinks: false);
+    final destination = await _uniqueEntityPath(
+      destDir,
+      p.basename(src),
+      isDirectory: sourceType == FileSystemEntityType.directory,
+    );
+    if (sourceType == FileSystemEntityType.directory) {
+      await _copyDir(Directory(src), Directory(destination));
+    } else if (sourceType == FileSystemEntityType.file) {
+      await File(src).copy(destination);
+    } else {
+      throw FileSystemException('Unsupported file system entry.', src);
+    }
+    return destination;
+  }
+
   Future<void> _copyDir(Directory src, Directory dest) async {
     await dest.create(recursive: true);
     await for (final e in src.list(followLinks: false)) {
@@ -400,6 +417,50 @@ class FileSystemService {
     } else {
       await File(src).rename(dest);
     }
+  }
+
+  Future<String> moveEntityUnique(String src, String destDir) async {
+    final isDirectory =
+        await FileSystemEntity.type(src, followLinks: false) ==
+            FileSystemEntityType.directory;
+    final destination = await _uniqueEntityPath(
+      destDir,
+      p.basename(src),
+      isDirectory: isDirectory,
+    );
+    try {
+      if (isDirectory) {
+        await Directory(src).rename(destination);
+      } else {
+        await File(src).rename(destination);
+      }
+    } on FileSystemException catch (error) {
+      if (error.osError?.errorCode != 18 &&
+          error.osError?.errorCode != 17) {
+        rethrow;
+      }
+      final copiedPath = await copyEntityUnique(src, destDir);
+      await deleteEntity(src);
+      return copiedPath;
+    }
+    return destination;
+  }
+
+  Future<String> _uniqueEntityPath(
+    String directory,
+    String name, {
+    required bool isDirectory,
+  }) async {
+    var candidate = p.join(directory, name);
+    var suffix = 1;
+    while (await FileSystemEntity.type(candidate, followLinks: false) !=
+        FileSystemEntityType.notFound) {
+      final base = isDirectory ? name : p.basenameWithoutExtension(name);
+      final extension = isDirectory ? '' : p.extension(name);
+      candidate = p.join(directory, '$base ($suffix)$extension');
+      suffix++;
+    }
+    return candidate;
   }
 
   /// Renommage : méthodes d'instance (File.rename / Directory.rename).

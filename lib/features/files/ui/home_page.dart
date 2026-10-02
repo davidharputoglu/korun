@@ -22,6 +22,7 @@ import 'batch_rename_dialog.dart';
 import 'date_editor_dialog.dart';
 import 'file_dialogs.dart';
 import 'file_search_dialog.dart';
+import 'send_to_dialog.dart';
 import 'widgets/file_pane.dart';
 
 class HomePage extends StatefulWidget {
@@ -289,6 +290,100 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _sendTo(PaneController pane, PaneController other) async {
+    final selected = pane.selectedEntries;
+    if (selected.isEmpty) return;
+    final targets = <SendToTarget>[];
+    const folders = [
+      (QuickFolder.desktop, Icons.desktop_windows),
+      (QuickFolder.downloads, Icons.download),
+      (QuickFolder.documents, Icons.description),
+      (QuickFolder.videos, Icons.video_library),
+      (QuickFolder.pictures, Icons.image),
+      (QuickFolder.music, Icons.music_note),
+    ];
+    for (final (folder, icon) in folders) {
+      final path = await _platform.getQuickFolderPath(folder);
+      if (path != null) {
+        targets.add(
+          SendToTarget(
+            name: tr(context, folder.localizationKey),
+            path: path,
+            icon: icon,
+          ),
+        );
+      }
+    }
+    if (p.normalize(other.currentPath) != p.normalize(pane.currentPath)) {
+      targets.add(
+        SendToTarget(
+          name: tr(context, 'other_panel'),
+          path: other.currentPath,
+          icon: Icons.compare_arrows,
+        ),
+      );
+    }
+    final roots = await _platform.searchRoots();
+    for (final root in roots) {
+      if (p.normalize(root) == p.normalize(pane.currentPath)) continue;
+      if (targets.any((target) => p.normalize(target.path) == p.normalize(root))) {
+        continue;
+      }
+      targets.add(
+        SendToTarget(name: root, path: root, icon: Icons.storage),
+      );
+    }
+    if (!mounted) return;
+    final choice = await showDialog<SendToSelection>(
+      context: context,
+      builder: (_) => SendToDialog(targets: targets),
+    );
+    if (choice == null) return;
+    try {
+      switch (choice.action) {
+        case SendAction.email:
+          final files = selected.where((entry) => !entry.isDir).toList();
+          if (files.isEmpty) {
+            _showOperationMessage(tr(context, 'email_no_files'));
+            return;
+          }
+          await _platform.composeEmail(files.map((file) => file.path).toList());
+        case SendAction.shortcut:
+          for (final entry in selected) {
+            await _platform.createDesktopShortcut(entry.path);
+          }
+          _showOperationMessage(tr(context, 'send_completed'));
+        case SendAction.copy:
+        case SendAction.move:
+          final destination = choice.path;
+          if (destination == null) return;
+          final failures = <String>[];
+          var completed = 0;
+          for (final entry in selected) {
+            try {
+              if (choice.action == SendAction.copy) {
+                await _fs.copyEntityUnique(entry.path, destination);
+              } else {
+                await _fs.moveEntityUnique(entry.path, destination);
+              }
+              completed++;
+            } catch (error) {
+              failures.add('${entry.name}: $error');
+            }
+          }
+          _reloadBoth();
+          _showOperationMessage(
+            failures.isEmpty
+                ? '${tr(context, 'send_completed')} ($completed)'
+                : '${tr(context, 'operation_failed')} ($completed/${selected.length})\n'
+                    '${failures.take(3).join('\n')}',
+          );
+      }
+    } catch (error) {
+      _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
+  }
+
   void _onAction(int paneIdx, String action, FileEntry entry) {
     final pane = _pane(paneIdx);
     final other = _pane(paneIdx == 0 ? 1 : 0);
@@ -309,6 +404,8 @@ class _HomePageState extends State<HomePage> {
         _isCut = true;
       case 'paste':
         _paste(pane);
+      case 'send_to':
+        _sendTo(pane, other);
       case 'rename':
         _rename(pane, entry);
       case 'batch_rename':
@@ -472,7 +569,7 @@ class _HomePageState extends State<HomePage> {
                               _goQuickFolder(_left, folder),
                         ),
                       ),
-                      if (settings.showPreviews)
+                      if (settings.showLeftPreview)
                         PreviewPanel(
                           controller: _left,
                           width: constraints.maxWidth < 640 ? 180 : 240,
@@ -498,7 +595,7 @@ class _HomePageState extends State<HomePage> {
                               _goQuickFolder(_right, folder),
                         ),
                       ),
-                      if (settings.showPreviews)
+                      if (settings.showRightPreview)
                         PreviewPanel(
                           controller: _right,
                           width: constraints.maxWidth < 640 ? 180 : 240,

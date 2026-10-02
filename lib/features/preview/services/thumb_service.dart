@@ -2,6 +2,21 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:archive/archive.dart';
+import 'package:path/path.dart' as p;
+
+class ArchiveImagePreview {
+  const ArchiveImagePreview({required this.name, required this.path});
+
+  final String name;
+  final String path;
+}
+
+class ArchivePreviewData {
+  const ArchivePreviewData({required this.entries, required this.images});
+
+  final List<String> entries;
+  final List<ArchiveImagePreview> images;
+}
 
 /// Vraies miniatures : ffmpeg système (vidéo/audio) + lecture d'archives.
 class ThumbService {
@@ -9,8 +24,8 @@ class ThumbService {
       <String, Future<String?>>{};
   static final Map<String, Future<String?>> _audioCache =
       <String, Future<String?>>{};
-  static final Map<String, Future<List<String>>> _archiveCache =
-      <String, Future<List<String>>>{};
+  static final Map<String, Future<ArchivePreviewData>> _archiveCache =
+      <String, Future<ArchivePreviewData>>{};
 
   static String _tmpFor(String path, String kind) =>
       '${Directory.systemTemp.path}/korun_${kind}_${path.hashCode.toUnsigned(31)}.png';
@@ -80,17 +95,19 @@ class ThumbService {
     return result;
   }
 
-  /// Archives : liste RÉELLE du contenu (zip/tar/gz/bz2/xz).
-  static Future<List<String>> archiveEntries(String path) async {
+  /// Liste une archive sans bloquer l'interface et extrait un nombre limité
+  /// de petites images pour les aperçus ZIP/CBZ et TAR compressés.
+  static Future<ArchivePreviewData> archivePreview(String path) async {
     final stat = await File(path).stat();
     final key = '$path:${stat.modified.millisecondsSinceEpoch}:${stat.size}';
     return _archiveCache.putIfAbsent(
       key,
-      () {
+      () async {
         if (_archiveCache.length >= 32) {
           _archiveCache.remove(_archiveCache.keys.first);
         }
-        return Isolate.run(() => _archiveEntriesInBackground(path));
+        final result = await Isolate.run(() => _archivePreviewInBackground(path));
+        return _archivePreviewFromMap(result);
       },
     );
   }
@@ -114,10 +131,12 @@ class ThumbService {
   }
 }
 
-List<String> _archiveEntriesInBackground(String path) {
+Map<String, Object> _archivePreviewInBackground(String path) {
   InputFileStream? input;
   try {
-    if (File(path).lengthSync() > 64 * 1024 * 1024) return const [];
+    if (File(path).lengthSync() > 64 * 1024 * 1024) {
+      return {'entries': const <String>[], 'images': const <List<String>>[]};
+    }
     final lower = path.toLowerCase();
     Archive? archive;
     if (lower.endsWith('.zip')) {
@@ -126,24 +145,67 @@ List<String> _archiveEntriesInBackground(String path) {
     } else if (lower.endsWith('.tar')) {
       input = InputFileStream(path);
       archive = TarDecoder().decodeStream(input);
-    } else if (lower.endsWith('.gz')) {
+    } else if (lower.endsWith('.tar.gz') || lower.endsWith('.tgz')) {
       archive = TarDecoder().decodeBytes(
         GZipDecoder().decodeBytes(File(path).readAsBytesSync()),
       );
-    } else if (lower.endsWith('.bz2')) {
+    } else if (lower.endsWith('.tar.bz2') ||
+        lower.endsWith('.tbz') ||
+        lower.endsWith('.tbz2')) {
       archive = TarDecoder().decodeBytes(
         BZip2Decoder().decodeBytes(File(path).readAsBytesSync()),
       );
-    } else if (lower.endsWith('.xz')) {
+    } else if (lower.endsWith('.tar.xz') || lower.endsWith('.txz')) {
       archive = TarDecoder().decodeBytes(
         XZDecoder().decodeBytes(File(path).readAsBytesSync()),
       );
     }
-    return archive?.files.take(300).map((file) => file.name).toList() ??
-        const [];
+    if (archive == null) {
+      return {'entries': const <String>[], 'images': const <List<String>>[]};
+    }
+    final entries = <String>[];
+    final images = <List<String>>[];
+    final previewDirectory = Directory(
+      '${Directory.systemTemp.path}/korun_archive_${path.hashCode.toUnsigned(31)}',
+    )..createSync(recursive: true);
+    for (final entry in archive.files) {
+      if (entry.isDirectory) continue;
+      if (entries.length < 300) entries.add(entry.name);
+      final ext = p.extension(entry.name).toLowerCase();
+      if (images.length >= 12 ||
+          entry.size <= 0 ||
+          entry.size > 5 * 1024 * 1024 ||
+          !const {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'}
+              .contains(ext)) {
+        continue;
+      }
+      final previewPath = p.join(previewDirectory.path, '${images.length}$ext');
+      final output = OutputFileStream(previewPath);
+      try {
+        entry.writeContent(output);
+      } finally {
+        output.closeSync();
+      }
+      images.add([entry.name, previewPath]);
+    }
+    return {'entries': entries, 'images': images};
   } catch (_) {
-    return const [];
+    return {'entries': const <String>[], 'images': const <List<String>>[]};
   } finally {
     input?.closeSync();
   }
 }
+
+ArchivePreviewData _archivePreviewFromMap(Map<String, Object?> value) =>
+    ArchivePreviewData(
+      entries: (value['entries']! as List<Object?>).cast<String>(),
+      images: (value['images']! as List<Object?>)
+          .cast<List<Object?>>()
+          .map(
+            (image) => ArchiveImagePreview(
+              name: image[0]! as String,
+              path: image[1]! as String,
+            ),
+          )
+          .toList(),
+    );

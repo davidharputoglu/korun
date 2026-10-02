@@ -111,6 +111,7 @@ class _FilePaneState extends State<FilePane> {
         PopupMenuItem(value: 'copy', child: Text(tr(context, 'copy'))),
         PopupMenuItem(value: 'cut', child: Text(tr(context, 'cut'))),
         PopupMenuItem(value: 'paste', child: Text(tr(context, 'paste'))),
+        PopupMenuItem(value: 'send_to', child: Text(tr(context, 'send_to'))),
         const PopupMenuDivider(),
         PopupMenuItem(value: 'rename', child: Text(tr(context, 'rename'))),
         if (multi)

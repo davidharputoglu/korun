@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/app_info.dart';
 import '../../../core/i18n/l10n.dart';
+import 'license_translation.dart';
 
 const _mitLicenseText = '''
 MIT License
@@ -31,6 +32,99 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ''';
 
+const _mitLicenseFrench = '''
+Licence MIT — traduction indicative non officielle
+
+Copyright (c) 2026 David Harputoglu
+
+L'autorisation est accordée, gratuitement, à toute personne obtenant une copie
+de ce logiciel et des fichiers de documentation associés (le « Logiciel »), de
+traiter le Logiciel sans restriction, notamment les droits d'utiliser, copier,
+modifier, fusionner, publier, distribuer, sous-licencier et/ou vendre des copies
+du Logiciel, et d'autoriser les personnes auxquelles le Logiciel est fourni à
+faire de même, sous réserve des conditions suivantes :
+
+La présente notice de droit d'auteur et la présente autorisation doivent être
+incluses dans toutes les copies ou parties substantielles du Logiciel.
+
+LE LOGICIEL EST FOURNI « EN L'ÉTAT », SANS GARANTIE D'AUCUNE SORTE, EXPRESSE OU
+IMPLICITE, Y COMPRIS, SANS S'Y LIMITER, LES GARANTIES DE QUALITÉ MARCHANDE,
+D'ADÉQUATION À UN USAGE PARTICULIER ET D'ABSENCE DE CONTREFAÇON. EN AUCUN CAS
+LES AUTEURS OU TITULAIRES DU DROIT D'AUTEUR NE POURRONT ÊTRE TENUS RESPONSABLES
+DE TOUTE RÉCLAMATION, DE TOUT DOMMAGE OU DE TOUTE AUTRE RESPONSABILITÉ, QUE CE
+SOIT DANS LE CADRE D'UNE ACTION CONTRACTUELLE, DÉLICTUELLE OU AUTRE, DÉCOULANT
+DU LOGICIEL OU DE SON UTILISATION, OU EN RELATION AVEC CEUX-CI.
+''';
+
+const _mitThirdPartyFrench = '''
+Licence MIT — traduction indicative non officielle
+
+L'autorisation est accordée, gratuitement, à toute personne obtenant une copie
+de ce logiciel et des fichiers de documentation associés (le « Logiciel »), de
+traiter le Logiciel sans restriction, notamment les droits d'utiliser, copier,
+modifier, fusionner, publier, distribuer, sous-licencier et/ou vendre des copies
+du Logiciel, et d'autoriser les personnes auxquelles le Logiciel est fourni à
+faire de même, sous réserve des conditions suivantes :
+
+La présente notice de droit d'auteur et la présente autorisation doivent être
+incluses dans toutes les copies ou parties substantielles du Logiciel.
+
+LE LOGICIEL EST FOURNI « EN L'ÉTAT », SANS GARANTIE D'AUCUNE SORTE, EXPRESSE OU
+IMPLICITE, Y COMPRIS, SANS S'Y LIMITER, LES GARANTIES DE QUALITÉ MARCHANDE,
+D'ADÉQUATION À UN USAGE PARTICULIER ET D'ABSENCE DE CONTREFAÇON. EN AUCUN CAS
+LES AUTEURS OU TITULAIRES DU DROIT D'AUTEUR NE POURRONT ÊTRE TENUS RESPONSABLES
+DE TOUTE RÉCLAMATION, DE TOUT DOMMAGE OU DE TOUTE AUTRE RESPONSABILITÉ, QUE CE
+SOIT DANS LE CADRE D'UNE ACTION CONTRACTUELLE, DÉLICTUELLE OU AUTRE, DÉCOULANT
+DU LOGICIEL OU DE SON UTILISATION, OU EN RELATION AVEC CEUX-CI.
+''';
+
+const _bsd3French = '''
+Licence BSD à trois clauses — traduction indicative non officielle
+
+La redistribution et l'utilisation sous forme de code source ou binaire, avec
+ou sans modification, sont autorisées sous réserve des conditions suivantes :
+
+1. Les redistributions du code source doivent conserver la notice de droit
+d'auteur ci-dessus, la présente liste de conditions et l'avertissement qui suit.
+2. Les redistributions sous forme binaire doivent reproduire la notice de droit
+d'auteur ci-dessus, la présente liste de conditions et l'avertissement dans la
+documentation et/ou les autres éléments fournis avec la distribution.
+3. Ni le nom du titulaire du droit d'auteur ni ceux de ses contributeurs ne
+peuvent être utilisés pour approuver ou promouvoir des produits dérivés de ce
+logiciel sans autorisation écrite préalable.
+
+CE LOGICIEL EST FOURNI « EN L'ÉTAT » PAR LE TITULAIRE DU DROIT D'AUTEUR ET SES
+CONTRIBUTEURS, QUI DÉCLINENT TOUTE GARANTIE EXPRESSE OU IMPLICITE, Y COMPRIS,
+SANS S'Y LIMITER, LES GARANTIES IMPLICITES DE QUALITÉ MARCHANDE ET D'ADÉQUATION
+À UN USAGE PARTICULIER. EN AUCUN CAS LE TITULAIRE DU DROIT D'AUTEUR OU SES
+CONTRIBUTEURS NE POURRONT ÊTRE TENUS RESPONSABLES DE DOMMAGES DIRECTS,
+INDIRECTS, ACCESSOIRES, SPÉCIAUX, EXEMPLAIRES OU CONSÉCUTIFS, NOTAMMENT
+L'ACQUISITION DE BIENS OU SERVICES DE REMPLACEMENT, LA PERTE D'UTILISATION, DE
+DONNÉES OU DE BÉNÉFICES, OU L'INTERRUPTION D'ACTIVITÉ, QUELLE QU'EN SOIT LA
+CAUSE ET QUELLE QUE SOIT LA THÉORIE DE RESPONSABILITÉ INVOQUÉE, CONTRACTUELLE,
+STRICTE OU DÉLICTUELLE (Y COMPRIS LA NÉGLIGENCE), DÉCOULANT DE L'UTILISATION DE
+CE LOGICIEL, MÊME SI LA POSSIBILITÉ DE TELS DOMMAGES A ÉTÉ SIGNALÉE.
+''';
+
+String? _indicativeFrenchLicense(String source) {
+  final normalized = source.toLowerCase();
+  if (normalized.contains(
+    'permission is hereby granted, free of charge, to any person obtaining a copy',
+  )) {
+    final notices = source
+        .split('\n')
+        .where((line) => line.trimLeft().toLowerCase().startsWith('copyright'))
+        .join('\n');
+    return '${notices.isEmpty ? '' : '$notices\n\n'}$_mitThirdPartyFrench';
+  }
+  if (normalized.contains('redistribution and use in source and binary forms') &&
+      (normalized.contains('neither the name') ||
+          normalized.contains('endorse or promote'))) {
+    return _bsd3French;
+  }
+  return null;
+}
+
 void showKorunLicenses(BuildContext context) {
   showDialog<void>(
     context: context,
@@ -40,8 +134,51 @@ void showKorunLicenses(BuildContext context) {
         width: 520,
         height: 420,
         child: SingleChildScrollView(
-          child: SelectableText(
-            '${tr(context, 'app_license')}\n\n$_mitLicenseText\n${tr(context, 'disclaimer')}',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr(context, 'app_license')),
+              if (Localizations.localeOf(context).languageCode != 'en') ...[
+                const SizedBox(height: 12),
+                Text(
+                  licenseTranslationLabel(
+                    Localizations.localeOf(context).languageCode,
+                    'translation',
+                  ),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                SelectableText(
+                  Localizations.localeOf(context).languageCode == 'fr'
+                      ? _mitLicenseFrench
+                      : korunMitTranslation(
+                          Localizations.localeOf(context).languageCode,
+                        ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  licenseTranslationLabel(
+                    Localizations.localeOf(context).languageCode,
+                    'warning',
+                  ),
+                ),
+              ],
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  licenseTranslationLabel(
+                    Localizations.localeOf(context).languageCode,
+                    'original',
+                  ),
+                ),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: SelectableText(_mitLicenseText),
+                  ),
+                ],
+              ),
+              Text(tr(context, 'disclaimer')),
+            ],
           ),
         ),
       ),
@@ -53,11 +190,10 @@ void showKorunLicenses(BuildContext context) {
         TextButton(
           onPressed: () {
             Navigator.pop(dialogContext);
-            showLicensePage(
-              context: context,
-              applicationName: 'Körün',
-              applicationVersion: AppInfo.version,
-              applicationLegalese: tr(context, 'app_license'),
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ThirdPartyLicensesPage(),
+              ),
             );
           },
           child: Text(tr(context, 'third_party_licenses')),
@@ -65,6 +201,121 @@ void showKorunLicenses(BuildContext context) {
       ],
     ),
   );
+}
+
+class ThirdPartyLicensesPage extends StatelessWidget {
+  const ThirdPartyLicensesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(tr(context, 'third_party_licenses'))),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                licenseTranslationLabel(
+                  Localizations.localeOf(context).languageCode,
+                  'notice',
+                ),
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<List<LicenseEntry>>(
+                future: LicenseRegistry.licenses.toList(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: SelectableText(
+                        '${tr(context, 'licenses_load_failed')}: '
+                        '${snapshot.error}',
+                      ),
+                    );
+                  }
+                  final grouped = <String, List<String>>{};
+                  for (final entry
+                      in snapshot.data ?? const <LicenseEntry>[]) {
+                    final text = entry.paragraphs
+                        .map((paragraph) => paragraph.text)
+                        .join('\n\n');
+                    for (final package in entry.packages) {
+                      grouped.putIfAbsent(package, () => <String>[]).add(text);
+                    }
+                  }
+                  final packages = grouped.keys.toList()..sort();
+                  return ListView.builder(
+                    itemCount: packages.length,
+                    itemBuilder: (context, index) {
+                      final package = packages[index];
+                      final licenses = grouped[package]!;
+                      return ExpansionTile(
+                        title: Text(package),
+                        subtitle: Text(
+                          '${licenses.length} ${tr(context, 'licenses_count')}',
+                        ),
+                        children: [
+                          for (final license in licenses)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                              child: Localizations.localeOf(context)
+                                          .languageCode ==
+                                      'en'
+                                  ? SelectableText(license)
+                                  : _LocalizedLicense(text: license),
+                            ),
+                        ],
+                      ),
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _LocalizedLicense extends StatelessWidget {
+  const _LocalizedLicense({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final translation = indicativeLicenseTranslation(text, languageCode) ??
+        (languageCode == 'fr' ? _indicativeFrenchLicense(text) : null);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          translation == null
+              ? licenseTranslationLabel(languageCode, 'unavailable')
+              : licenseTranslationLabel(languageCode, 'translation'),
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        if (translation != null) ...[
+          SelectableText(translation),
+          const SizedBox(height: 8),
+          Text(licenseTranslationLabel(languageCode, 'warning')),
+        ],
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: Text(licenseTranslationLabel(languageCode, 'original')),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SelectableText(text),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class KorunAboutDialog extends StatefulWidget {

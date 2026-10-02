@@ -33,9 +33,15 @@ class SettingsDialog extends StatelessWidget {
               ),
               SwitchListTile(
                 dense: true,
-                title: Text(tr(context, 'show_previews')),
-                value: s.showPreviews,
-                onChanged: s.setShowPreviews,
+                title: Text(tr(context, 'left_preview')),
+                value: s.showLeftPreview,
+                onChanged: s.setShowLeftPreview,
+              ),
+              SwitchListTile(
+                dense: true,
+                title: Text(tr(context, 'right_preview')),
+                value: s.showRightPreview,
+                onChanged: s.setShowRightPreview,
               ),
               SwitchListTile(
                 dense: true,

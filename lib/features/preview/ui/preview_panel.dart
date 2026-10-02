@@ -28,7 +28,9 @@ const _audioExts = [
   '.mp3', '.wav', '.ogg', '.oga', '.opus', '.flac', '.m4a', '.aac',
   '.wma', '.aiff', '.aif',
 ];
-const _archiveExts = ['.zip', '.tar', '.gz', '.bz2', '.xz'];
+const _archiveExts = [
+  '.zip', '.cbz', '.tar', '.gz', '.bz2', '.xz', '.rar', '.7z', '.cbr',
+];
 
 class PreviewPanel extends StatelessWidget {
   const PreviewPanel({
@@ -195,22 +197,50 @@ class PreviewPanel extends StatelessWidget {
       );
     }
     if (_archiveExts.contains(ext)) {
-      return FutureBuilder<List<String>>(
-        future: ThumbService.archiveEntries(e.path),
+      return FutureBuilder<ArchivePreviewData>(
+        future: ThumbService.archivePreview(e.path),
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
-          final names = snap.data ?? const [];
-          if (names.isEmpty) {
-            return _centerIcon(context, Icons.folder_zip, const Color(0xFFFFA726), e.name);
+          final data = snap.data;
+          if (data == null || data.entries.isEmpty) {
+            return _centerIcon(
+              context,
+              Icons.folder_zip,
+              const Color(0xFFFFA726),
+              e.name,
+            );
           }
+          final imagesByName = {
+            for (final image in data.images) image.name: image.path,
+          };
           return ListView.builder(
-            itemCount: names.length,
-            itemBuilder: (_, i) => Text(
-              names[i],
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-            ),
+            itemCount: data.entries.length,
+            itemBuilder: (_, i) {
+              final name = data.entries[i];
+              final imagePath = imagesByName[name];
+              return ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                leading: imagePath == null
+                    ? const Icon(Icons.insert_drive_file, size: 20)
+                    : Image.file(
+                        File(imagePath),
+                        width: 42,
+                        height: 42,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.broken_image, size: 20),
+                      ),
+                title: Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                ),
+              );
+            },
           );
         },
       );
