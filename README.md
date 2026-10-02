@@ -12,8 +12,8 @@ previews alongside each pane.
   covers, archive contents, Office documents, and hexadecimal views of binary
   files.
 - Context-menu actions for opening, **Open with…** on Linux and Windows, copy,
-  cut, paste, rename, delete, properties, ZIP compression, and safe ZIP
-  extraction.
+  cut, paste, rename, delete, properties, ZIP compression, and safe extraction
+  of ZIP/CBZ and TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, and TAR.XZ/TXZ archives.
 - Light, dark, and OLED-black themes; preset accent colors and custom themes;
   12 languages, including English, French, and Turkish.
 - Hidden files, list/grid views, sorting, keyboard shortcuts, date editing,
@@ -23,6 +23,9 @@ previews alongside each pane.
   and modified date. `content:` searches text files up to 1 MiB. Unmounted
   network locations can be added from the search window.
 - Built-in legal information page listing Flutter dependency licenses.
+- Archive previews list entries and show a limited set of contained images for
+  supported ZIP/CBZ and TAR variants. RAR/CBR and 7z extraction/compression
+  are not built in.
 
 ### Previews and optional dependencies
 - `ffmpeg` is required to generate video thumbnails and audio covers. Without
@@ -84,7 +87,8 @@ avec des aperçus indépendants à côté de chaque panneau.
   binaires.
 - Menu contextuel pour ouvrir, **Ouvrir avec…** sous Linux et Windows, copier,
   couper, coller, renommer, supprimer, afficher les propriétés, compresser en
-  ZIP et extraire des archives ZIP de manière sécurisée.
+  ZIP et extraire de manière sécurisée les archives ZIP/CBZ, TAR,
+  TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2 et TAR.XZ/TXZ.
 - Thèmes clair, sombre et noir OLED, couleurs d’accent prédéfinies et thèmes
   personnalisés ; 12 langues, dont l’anglais, le français et le turc.
 - Fichiers cachés, vues liste/grille, tri, raccourcis clavier, édition des
@@ -95,6 +99,9 @@ avec des aperçus indépendants à côté de chaque panneau.
   Les emplacements réseau non montés peuvent être ajoutés depuis la recherche.
 - Page d’informations légales intégrée listant les licences des dépendances
   Flutter.
+- Les aperçus d’archives listent les entrées et montrent un nombre limité
+  d’images contenues dans les formats pris en charge. L’extraction et la
+  compression RAR/CBR et 7z ne sont pas intégrées.
 
 ### Aperçus et dépendances facultatives
 - `ffmpeg` est nécessaire pour générer les miniatures vidéo et les pochettes
@@ -158,8 +165,9 @@ sunan çift panelli bir dosya yöneticisidir.
   kapakları; arşiv içerikleri; Office belgeleri ve ikili dosyalar için
   onaltılık görünüm.
 - Açma, Linux ve Windows’ta **Birlikte aç…**, kopyalama, kesme, yapıştırma,
-  yeniden adlandırma, silme, özellikleri görüntüleme, ZIP sıkıştırma ve güvenli
-  ZIP çıkarma için bağlam menüsü.
+  yeniden adlandırma, silme, özellikleri görüntüleme, ZIP sıkıştırma ve ZIP/CBZ,
+  TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2 ve TAR.XZ/TXZ arşivlerini güvenli çıkarma
+  için bağlam menüsü.
 - Açık, koyu ve OLED siyah temalar; hazır vurgu renkleri ve özel temalar;
   İngilizce, Fransızca ve Türkçe dâhil 12 dil.
 - Gizli dosyalar, liste/ızgara görünümleri, sıralama, klavye kısayolları, tarih
@@ -171,6 +179,9 @@ sunan çift panelli bir dosya yöneticisidir.
   eklenebilir.
 - Flutter bağımlılıklarının lisanslarını listeleyen yerleşik yasal bilgiler
   sayfası.
+- Arşiv önizlemesi, desteklenen ZIP/CBZ ve TAR çeşitlerinin içerik listesini ve
+  sınırlı sayıda görselini gösterir. RAR/CBR ve 7z sıkıştırma/çıkarma yerleşik
+  değildir.
 
 ### Önizlemeler ve isteğe bağlı bağımlılıklar
 - Video küçük resimleri ve ses kapakları oluşturmak için `ffmpeg` gerekir.

@@ -35,6 +35,43 @@ void main() {
     );
   });
 
+  test('extracts TAR and supported compressed TAR variants', () async {
+    final tar = Archive()
+      ..addFile(ArchiveFile('folder/hello.txt', 5, 'hello'.codeUnits));
+    final tarBytes = TarEncoder().encode(tar);
+    final archives = <String, List<int>>{
+      'plain.tar': tarBytes,
+      'gzip.tar.gz': GZipEncoder().encode(tarBytes),
+      'bzip.tar.bz2': BZip2Encoder().encode(tarBytes),
+      'xz.tar.xz': XZEncoder().encode(tarBytes),
+    };
+
+    for (final archive in archives.entries) {
+      final archivePath = p.join(tempDirectory.path, archive.key);
+      await File(archivePath).writeAsBytes(archive.value);
+      final extracted = await fileSystem.extractArchive(archivePath);
+      expect(
+        await File(p.join(extracted, 'folder', 'hello.txt')).readAsString(),
+        'hello',
+        reason: 'Failed to extract ${archive.key}',
+      );
+    }
+  });
+
+  test('extracts CBZ archives using ZIP extraction', () async {
+    final archive = Archive()
+      ..addFile(ArchiveFile('page.txt', 4, 'page'.codeUnits));
+    final archivePath = p.join(tempDirectory.path, 'comic.cbz');
+    await File(archivePath).writeAsBytes(ZipEncoder().encode(archive));
+
+    final extracted = await fileSystem.extractArchive(archivePath);
+
+    expect(
+      await File(p.join(extracted, 'page.txt')).readAsString(),
+      'page',
+    );
+  });
+
   test('rejects ZIP entries that escape the extraction directory', () async {
     final archive = Archive()
       ..addFile(ArchiveFile('../outside.txt', 7, 'outside'.codeUnits));

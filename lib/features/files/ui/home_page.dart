@@ -172,7 +172,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _extract(FileEntry entry, PaneController pane) async {
     try {
-      final outputPath = await _fs.extractZip(entry.path);
+      final outputPath = await _fs.extractArchive(entry.path);
       await pane.refresh();
       if (mounted) _showOperationMessage(
         '${tr(context, 'archive_extracted')}: ${p.basename(outputPath)}',

@@ -9,6 +9,7 @@ import '../models/file_entry.dart';
 
 enum SortBy { name, size, date }
 enum ViewMode { list, grid }
+enum _ArchiveType { zip, tar, tarGzip, tarBzip2, tarXz }
 
 class OpenWithApp {
   const OpenWithApp({required this.name, required this.desktopFile});
@@ -295,18 +296,43 @@ class FileSystemService {
     }
   }
 
-  Future<String> extractZip(String archivePath) async {
-    if (!archivePath.toLowerCase().endsWith('.zip')) {
-      throw FileSystemException('Only ZIP archives are supported.', archivePath);
+  Future<String> extractZip(String archivePath) => extractArchive(archivePath);
+
+  Future<String> extractArchive(String archivePath) async {
+    final lowerPath = archivePath.toLowerCase();
+    final archiveType = _archiveType(lowerPath);
+    if (archiveType == null) {
+      throw FileSystemException(
+        'Unsupported archive format. Supported: ZIP/CBZ, TAR, TAR.GZ, '
+        'TAR.BZ2, and TAR.XZ.',
+        archivePath,
+      );
     }
     final parentPath = p.dirname(archivePath);
-    final archiveName = p.basenameWithoutExtension(archivePath);
+    final archiveName = _archiveBaseName(archivePath, archiveType);
     var outputPath = await _availableExtractionPath(parentPath, archiveName);
 
-    final input = InputFileStream(archivePath);
+    InputFileStream? input;
     Directory? staging;
     try {
-      final archive = ZipDecoder().decodeStream(input);
+      final archive = switch (archiveType) {
+        _ArchiveType.zip => () {
+            input = InputFileStream(archivePath);
+            return ZipDecoder().decodeStream(input!);
+          }(),
+        _ArchiveType.tar => TarDecoder().decodeBytes(
+            File(archivePath).readAsBytesSync(),
+          ),
+        _ArchiveType.tarGzip => TarDecoder().decodeBytes(
+            GZipDecoder().decodeBytes(File(archivePath).readAsBytesSync()),
+          ),
+        _ArchiveType.tarBzip2 => TarDecoder().decodeBytes(
+            BZip2Decoder().decodeBytes(File(archivePath).readAsBytesSync()),
+          ),
+        _ArchiveType.tarXz => TarDecoder().decodeBytes(
+            XZDecoder().decodeBytes(File(archivePath).readAsBytesSync()),
+          ),
+      };
       staging =
           await Directory(parentPath).createTemp('.korun-extract-');
       for (final entry in archive) {
@@ -316,23 +342,23 @@ class FileSystemService {
             RegExp(r'^[a-zA-Z]:').hasMatch(normalizedName) ||
             segments.contains('..') ||
             entry.isSymbolicLink) {
-          throw FormatException('Unsafe path in ZIP archive: ${entry.name}');
+          throw FormatException('Unsafe path in archive: ${entry.name}');
         }
         if (normalizedName.isEmpty || normalizedName == '.') continue;
         final destination = p.normalize(p.join(staging.path, normalizedName));
         if (!p.isWithin(staging.path, destination)) {
-          throw FormatException('Unsafe path in ZIP archive: ${entry.name}');
+          throw FormatException('Unsafe path in archive: ${entry.name}');
         }
         if (entry.isDirectory) {
           await Directory(destination).create(recursive: true);
-        } else {
+        } else if (entry.isFile) {
           if (await FileSystemEntity.type(
                 destination,
                 followLinks: false,
               ) !=
               FileSystemEntityType.notFound) {
             throw FormatException(
-              'Duplicate path in ZIP archive: ${entry.name}',
+              'Duplicate path in archive: ${entry.name}',
             );
           }
           await Directory(p.dirname(destination)).create(recursive: true);
@@ -342,6 +368,10 @@ class FileSystemService {
           } finally {
             await output.close();
           }
+        } else {
+          throw FormatException(
+            'Unsupported special entry in archive: ${entry.name}',
+          );
         }
       }
       outputPath = await _availableExtractionPath(parentPath, archiveName);
@@ -352,9 +382,47 @@ class FileSystemService {
       }
       rethrow;
     } finally {
-      await input.close();
+      await input?.close();
     }
     return outputPath;
+  }
+
+  _ArchiveType? _archiveType(String lowerPath) {
+    if (lowerPath.endsWith('.zip') || lowerPath.endsWith('.cbz')) {
+      return _ArchiveType.zip;
+    }
+    if (lowerPath.endsWith('.tar.gz') || lowerPath.endsWith('.tgz')) {
+      return _ArchiveType.tarGzip;
+    }
+    if (lowerPath.endsWith('.tar.bz2') ||
+        lowerPath.endsWith('.tbz') ||
+        lowerPath.endsWith('.tbz2')) {
+      return _ArchiveType.tarBzip2;
+    }
+    if (lowerPath.endsWith('.tar.xz') || lowerPath.endsWith('.txz')) {
+      return _ArchiveType.tarXz;
+    }
+    if (lowerPath.endsWith('.tar')) return _ArchiveType.tar;
+    return null;
+  }
+
+  String _archiveBaseName(String archivePath, _ArchiveType type) {
+    final name = p.basename(archivePath);
+    final suffix = switch (type) {
+      _ArchiveType.zip => name.toLowerCase().endsWith('.cbz') ? '.cbz' : '.zip',
+      _ArchiveType.tar => '.tar',
+      _ArchiveType.tarGzip =>
+        name.toLowerCase().endsWith('.tgz') ? '.tgz' : '.tar.gz',
+      _ArchiveType.tarBzip2 => name.toLowerCase().endsWith('.tbz2')
+          ? '.tbz2'
+          : name.toLowerCase().endsWith('.tbz')
+              ? '.tbz'
+              : '.tar.bz2',
+      _ArchiveType.tarXz =>
+        name.toLowerCase().endsWith('.txz') ? '.txz' : '.tar.xz',
+    };
+    final baseName = name.substring(0, name.length - suffix.length);
+    return baseName.isEmpty ? 'archive' : baseName;
   }
 
   Future<String> _availableExtractionPath(
