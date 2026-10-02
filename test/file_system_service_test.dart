@@ -82,7 +82,11 @@ void main() {
     };
 
     for (final compressed in files.entries) {
-      final compressedPath = p.join(tempDirectory.path, compressed.key);
+      final formatDirectory = Directory(
+        p.join(tempDirectory.path, p.extension(compressed.key).substring(1)),
+      );
+      await formatDirectory.create();
+      final compressedPath = p.join(formatDirectory.path, compressed.key);
       await File(compressedPath).writeAsBytes(compressed.value);
 
       final extractedPath = await fileSystem.extractArchive(compressedPath);
