@@ -65,6 +65,14 @@ void main() {
           reason: '${locale.languageCode}: $key',
         );
       }
+      if (locale.languageCode != 'en') {
+        expect(
+          L10n.t(locale, 'compression_level_hint'),
+          isNot(L10n.t(const Locale('en'), 'compression_level_hint')),
+          reason:
+              '${locale.languageCode}: compression level guidance fell back to English',
+        );
+      }
     }
   });
 }
