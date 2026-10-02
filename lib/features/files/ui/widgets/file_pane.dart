@@ -132,6 +132,9 @@ class _FilePaneState extends State<FilePane> {
               '.tbz2',
               '.tar.xz',
               '.txz',
+              '.gz',
+              '.bz2',
+              '.xz',
             }.any(entry.path.toLowerCase().endsWith))
           PopupMenuItem(value: 'extract', child: Text(tr(context, 'extract_here'))),
         const PopupMenuDivider(),

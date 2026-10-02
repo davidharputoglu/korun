@@ -72,6 +72,41 @@ void main() {
     );
   });
 
+  test('decompresses standalone GZIP, BZIP2, and XZ files', () async {
+    const contents = 'compressed file content';
+    final bytes = contents.codeUnits;
+    final files = <String, List<int>>{
+      'document.txt.gz': GZipEncoder().encode(bytes),
+      'document.txt.bz2': BZip2Encoder().encode(bytes),
+      'document.txt.xz': XZEncoder().encode(bytes),
+    };
+
+    for (final compressed in files.entries) {
+      final compressedPath = p.join(tempDirectory.path, compressed.key);
+      await File(compressedPath).writeAsBytes(compressed.value);
+
+      final extractedPath = await fileSystem.extractArchive(compressedPath);
+
+      expect(p.basename(extractedPath), 'document.txt');
+      expect(await File(extractedPath).readAsString(), contents);
+      expect(await File(compressedPath).exists(), isTrue);
+    }
+  });
+
+  test('does not overwrite an existing standalone decompression output', () async {
+    final compressedPath = p.join(tempDirectory.path, 'report.txt.gz');
+    await File(compressedPath)
+        .writeAsBytes(GZipEncoder().encode('new content'.codeUnits));
+    final existing = File(p.join(tempDirectory.path, 'report.txt'));
+    await existing.writeAsString('keep this file');
+
+    final extractedPath = await fileSystem.extractArchive(compressedPath);
+
+    expect(p.basename(extractedPath), 'report.txt (1)');
+    expect(await existing.readAsString(), 'keep this file');
+    expect(await File(extractedPath).readAsString(), 'new content');
+  });
+
   test('rejects ZIP entries that escape the extraction directory', () async {
     final archive = Archive()
       ..addFile(ArchiveFile('../outside.txt', 7, 'outside'.codeUnits));

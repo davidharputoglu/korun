@@ -13,7 +13,8 @@ previews alongside each pane.
   files.
 - Context-menu actions for opening, **Open with…** on Linux and Windows, copy,
   cut, paste, rename, delete, properties, ZIP compression, and safe extraction
-  of ZIP/CBZ and TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, and TAR.XZ/TXZ archives.
+  of ZIP/CBZ and TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2, and TAR.XZ/TXZ archives,
+  plus decompression of standalone GZIP, BZIP2, and XZ files.
 - Light, dark, and OLED-black themes; preset accent colors and custom themes;
   12 languages, including English, French, and Turkish.
 - Hidden files, list/grid views, sorting, keyboard shortcuts, date editing,
@@ -88,7 +89,8 @@ avec des aperçus indépendants à côté de chaque panneau.
 - Menu contextuel pour ouvrir, **Ouvrir avec…** sous Linux et Windows, copier,
   couper, coller, renommer, supprimer, afficher les propriétés, compresser en
   ZIP et extraire de manière sécurisée les archives ZIP/CBZ, TAR,
-  TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2 et TAR.XZ/TXZ.
+  TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2 et TAR.XZ/TXZ, ainsi que la décompression des
+  fichiers GZIP, BZIP2 et XZ autonomes.
 - Thèmes clair, sombre et noir OLED, couleurs d’accent prédéfinies et thèmes
   personnalisés ; 12 langues, dont l’anglais, le français et le turc.
 - Fichiers cachés, vues liste/grille, tri, raccourcis clavier, édition des
@@ -167,7 +169,7 @@ sunan çift panelli bir dosya yöneticisidir.
 - Açma, Linux ve Windows’ta **Birlikte aç…**, kopyalama, kesme, yapıştırma,
   yeniden adlandırma, silme, özellikleri görüntüleme, ZIP sıkıştırma ve ZIP/CBZ,
   TAR, TAR.GZ/TGZ, TAR.BZ2/TBZ/TBZ2 ve TAR.XZ/TXZ arşivlerini güvenli çıkarma
-  için bağlam menüsü.
+  ve bağımsız GZIP, BZIP2 ve XZ dosyalarını açma için bağlam menüsü.
 - Açık, koyu ve OLED siyah temalar; hazır vurgu renkleri ve özel temalar;
   İngilizce, Fransızca ve Türkçe dâhil 12 dil.
 - Gizli dosyalar, liste/ızgara görünümleri, sıralama, klavye kısayolları, tarih

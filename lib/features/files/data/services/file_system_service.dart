@@ -9,7 +9,16 @@ import '../models/file_entry.dart';
 
 enum SortBy { name, size, date }
 enum ViewMode { list, grid }
-enum _ArchiveType { zip, tar, tarGzip, tarBzip2, tarXz }
+enum _ArchiveType {
+  zip,
+  tar,
+  tarGzip,
+  tarBzip2,
+  tarXz,
+  gzipFile,
+  bzip2File,
+  xzFile,
+}
 
 class OpenWithApp {
   const OpenWithApp({required this.name, required this.desktopFile});
@@ -304,9 +313,16 @@ class FileSystemService {
     if (archiveType == null) {
       throw FileSystemException(
         'Unsupported archive format. Supported: ZIP/CBZ, TAR, TAR.GZ, '
-        'TAR.BZ2, and TAR.XZ.',
+        'TAR.BZ2, TAR.XZ, and standalone GZIP, BZIP2, and XZ files.',
         archivePath,
       );
+    }
+    if (const {
+      _ArchiveType.gzipFile,
+      _ArchiveType.bzip2File,
+      _ArchiveType.xzFile,
+    }.contains(archiveType)) {
+      return _extractCompressedFile(archivePath, archiveType);
     }
     final parentPath = p.dirname(archivePath);
     final archiveName = _archiveBaseName(archivePath, archiveType);
@@ -332,6 +348,10 @@ class FileSystemService {
         _ArchiveType.tarXz => TarDecoder().decodeBytes(
             XZDecoder().decodeBytes(File(archivePath).readAsBytesSync()),
           ),
+        _ArchiveType.gzipFile ||
+        _ArchiveType.bzip2File ||
+        _ArchiveType.xzFile =>
+          throw StateError('Standalone codecs are extracted separately.'),
       };
       staging =
           await Directory(parentPath).createTemp('.korun-extract-');
@@ -403,6 +423,9 @@ class FileSystemService {
       return _ArchiveType.tarXz;
     }
     if (lowerPath.endsWith('.tar')) return _ArchiveType.tar;
+    if (lowerPath.endsWith('.gz')) return _ArchiveType.gzipFile;
+    if (lowerPath.endsWith('.bz2')) return _ArchiveType.bzip2File;
+    if (lowerPath.endsWith('.xz')) return _ArchiveType.xzFile;
     return null;
   }
 
@@ -420,9 +443,49 @@ class FileSystemService {
               : '.tar.bz2',
       _ArchiveType.tarXz =>
         name.toLowerCase().endsWith('.txz') ? '.txz' : '.tar.xz',
+      _ArchiveType.gzipFile => '.gz',
+      _ArchiveType.bzip2File => '.bz2',
+      _ArchiveType.xzFile => '.xz',
     };
     final baseName = name.substring(0, name.length - suffix.length);
     return baseName.isEmpty ? 'archive' : baseName;
+  }
+
+  Future<String> _extractCompressedFile(
+    String archivePath,
+    _ArchiveType type,
+  ) async {
+    final compressed = await File(archivePath).readAsBytes();
+    final contents = switch (type) {
+      _ArchiveType.gzipFile => GZipDecoder().decodeBytes(compressed),
+      _ArchiveType.bzip2File => BZip2Decoder().decodeBytes(compressed),
+      _ArchiveType.xzFile => XZDecoder().decodeBytes(compressed),
+      _ => throw ArgumentError.value(type, 'type', 'Not a standalone codec'),
+    };
+    final parentPath = p.dirname(archivePath);
+    final baseName = _archiveBaseName(archivePath, type);
+    var outputPath = p.join(parentPath, baseName);
+    var suffix = 1;
+    while (true) {
+      final output = File(outputPath);
+      try {
+        await output.create(exclusive: true);
+        try {
+          await output.writeAsBytes(contents, flush: true);
+          return outputPath;
+        } catch (_) {
+          if (await output.exists()) await output.delete();
+          rethrow;
+        }
+      } on FileSystemException {
+        if (await FileSystemEntity.type(outputPath, followLinks: false) ==
+            FileSystemEntityType.notFound) {
+          rethrow;
+        }
+        outputPath = p.join(parentPath, '$baseName ($suffix)');
+        suffix++;
+      }
+    }
   }
 
   Future<String> _availableExtractionPath(
