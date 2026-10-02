@@ -399,7 +399,9 @@ class _KorunAboutDialogState extends State<KorunAboutDialog> {
                 onPressed: _checking ? null : _checkUpdate,
                 icon: _checking
                     ? const SizedBox(
-                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.system_update_alt, size: 18),
                 label: Text(tr(context, 'check_update')),
               ),
