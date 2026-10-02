@@ -18,6 +18,7 @@ class PaneController extends ChangeNotifier {
   FileEntry? _selected;
   final Set<String> _selection = {};
   bool _loading = false;
+  String? _error;
   bool _showHidden = false;
   SortBy _sortBy = SortBy.name;
   bool _ascending = true;
@@ -31,6 +32,7 @@ class PaneController extends ChangeNotifier {
   List<FileEntry> get selectedEntries =>
       _entries.where((e) => _selection.contains(e.path)).toList();
   bool get loading => _loading;
+  String? get error => _error;
   bool get showHidden => _showHidden;
   SortBy get sortBy => _sortBy;
   bool get ascending => _ascending;
@@ -42,6 +44,7 @@ class PaneController extends ChangeNotifier {
     if (showHidden != null) _showHidden = showHidden;
     final token = ++_loadToken;
     _loading = true;
+    _error = null;
     notifyListeners();
     try {
       _entries = await _fs.listDirectory(
@@ -50,11 +53,15 @@ class PaneController extends ChangeNotifier {
         sortBy: _sortBy,
         ascending: _ascending,
       );
-    } catch (_) {
-      if (token == _loadToken) _entries = const [];
+    } catch (error) {
+      if (token == _loadToken) {
+        _entries = const [];
+        _error = error.toString();
+      }
     }
     if (token == _loadToken) {
       _selection.clear();
+      _selected = null;
       _loading = false;
       notifyListeners();
     }
@@ -123,6 +130,11 @@ class PaneController extends ChangeNotifier {
       for (final e in _entries) {
         if (e.path == path) _selected = e;
       }
+    } else if (_selected?.path == path) {
+      _selected = null;
+      for (final entry in _entries) {
+        if (_selection.contains(entry.path)) _selected = entry;
+      }
     }
     notifyListeners();
   }
@@ -150,6 +162,7 @@ class PaneController extends ChangeNotifier {
 
   void clearSelection() {
     _selection.clear();
+    _selected = null;
     notifyListeners();
   }
 }

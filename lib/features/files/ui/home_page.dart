@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../core/app_info.dart';
@@ -12,11 +15,14 @@ import '../../settings/ui/about_dialog.dart';
 import '../../settings/ui/settings_dialog.dart';
 import '../../settings/ui/theme_dialog.dart';
 import '../data/models/file_entry.dart';
+import '../data/services/file_search_service.dart';
 import '../data/services/file_system_service.dart';
 import '../state/pane_controller.dart';
 import 'batch_rename_dialog.dart';
 import 'date_editor_dialog.dart';
 import 'file_dialogs.dart';
+import 'file_search_dialog.dart';
+import 'send_to_dialog.dart';
 import 'widgets/file_pane.dart';
 
 class HomePage extends StatefulWidget {
@@ -28,6 +34,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _fs = FileSystemService();
   final _platform = createPlatformService();
+  late final _searchService = FileSearchService(platform: _platform);
   late final PaneController _left;
   late final PaneController _right;
   int _activePane = 0;
@@ -56,6 +63,46 @@ class _HomePageState extends State<HomePage> {
     _reloadBoth();
   }
 
+  Future<void> _goQuickFolder(
+    PaneController pane,
+    QuickFolder folder,
+  ) async {
+    final path = await _platform.getQuickFolderPath(folder);
+    if (path == null) {
+      if (mounted) {
+        _showOperationMessage(
+          '${tr(context, folder.localizationKey)}: '
+          '${tr(context, 'quick_folder_not_found')}',
+        );
+      }
+      return;
+    }
+    await pane.cd(path);
+  }
+
+  Future<void> _searchFiles() async {
+    final result = await showDialog<SearchResult>(
+      context: context,
+      builder: (_) => FileSearchDialog(
+        service: _searchService,
+        locale: context.read<SettingsController>().locale,
+      ),
+    );
+    if (result == null) return;
+    final pane = _active;
+    if (result.isDirectory) {
+      await pane.cd(result.path);
+      return;
+    }
+    await pane.cd(p.dirname(result.path));
+    for (final entry in pane.entries) {
+      if (entry.path == result.path) {
+        pane.selectOnly(entry);
+        break;
+      }
+    }
+  }
+
   Future<void> _open(FileEntry entry, PaneController pane) async {
     if (entry.isDir) {
       await pane.cd(entry.path);
@@ -64,8 +111,86 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _openWith(FileEntry entry) async {
+    try {
+      if (Platform.isWindows) {
+        await _fs.openWith(entry.path);
+        return;
+      }
+      final apps = await _fs.availableOpenWithApps(
+        entry.path,
+        locale: context.read<SettingsController>().locale.languageCode,
+      );
+      if (!mounted) return;
+      if (apps.isEmpty) {
+        _showOperationMessage(tr(context, 'no_open_with_apps'));
+        return;
+      }
+      final app = await showDialog<OpenWithApp>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: Text(tr(dialogContext, 'open_with')),
+          children: [
+            for (final candidate in apps)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialogContext, candidate),
+                child: Text(candidate.name),
+              ),
+          ],
+        ),
+      );
+      if (app != null) await _fs.launchWith(app, entry.path);
+    } catch (error) {
+      if (mounted) _showOperationMessage(
+        '${tr(context, 'open_with_failed')}: $error',
+      );
+    }
+  }
+
+  Future<void> _compress(PaneController pane) async {
+    final entries = pane.selectedEntries;
+    if (entries.isEmpty) return;
+    final initialName = entries.length == 1
+        ? p.basenameWithoutExtension(entries.first.name)
+        : 'archive';
+    final name = await askArchiveName(context, initialName);
+    if (name == null) return;
+    final archiveName = name.toLowerCase().endsWith('.zip') ? name : '$name.zip';
+    try {
+      final archivePath = await _fs.compressToZip(
+        entries.map((entry) => entry.path).toList(),
+        p.join(pane.currentPath, archiveName),
+      );
+      await pane.refresh();
+      if (mounted) _showOperationMessage(
+        '${tr(context, 'archive_created')}: ${p.basename(archivePath)}',
+      );
+    } catch (error) {
+      if (mounted) _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
+  }
+
+  Future<void> _extract(FileEntry entry, PaneController pane) async {
+    try {
+      final outputPath = await _fs.extractZip(entry.path);
+      await pane.refresh();
+      if (mounted) _showOperationMessage(
+        '${tr(context, 'archive_extracted')}: ${p.basename(outputPath)}',
+      );
+    } catch (error) {
+      if (mounted) _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
+  }
+
+  void _showOperationMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _paste(PaneController pane) async {
     if (_clipPaths.isEmpty) return;
+    final total = _clipPaths.length;
+    final failures = <String>[];
+    var completed = 0;
     for (final src in _clipPaths) {
       try {
         if (_isCut) {
@@ -73,10 +198,19 @@ class _HomePageState extends State<HomePage> {
         } else {
           await _fs.copyEntity(src, pane.currentPath);
         }
-      } catch (_) {}
+        completed++;
+      } catch (error) {
+        failures.add('${p.basename(src)}: $error');
+      }
     }
-    if (_isCut) _clipPaths = const [];
+    if (_isCut && failures.isEmpty) _clipPaths = const [];
     _reloadBoth();
+    if (failures.isNotEmpty) {
+      _showOperationMessage(
+        '${tr(context, 'operation_failed')} ($completed/$total)\n'
+        '${failures.take(3).join('\n')}',
+      );
+    }
   }
 
   Future<void> _delete(PaneController pane) async {
@@ -87,13 +221,24 @@ class _HomePageState extends State<HomePage> {
         : '${entries.length} éléments';
     final ok = await confirmDelete(context, label);
     if (!ok) return;
+    final failures = <String>[];
+    var deleted = 0;
     for (final e in entries) {
       try {
         await _fs.deleteEntity(e.path);
-      } catch (_) {}
+        deleted++;
+      } catch (error) {
+        failures.add('${e.name}: $error');
+      }
     }
     pane.clearSelection();
     _reloadBoth();
+    if (failures.isNotEmpty) {
+      _showOperationMessage(
+        '${tr(context, 'delete_result')}: $deleted/${entries.length}\n'
+        '${failures.take(3).join('\n')}',
+      );
+    }
   }
 
   Future<void> _rename(PaneController pane, FileEntry e) async {
@@ -101,8 +246,10 @@ class _HomePageState extends State<HomePage> {
     if (newName == null || newName.isEmpty || newName == e.name) return;
     try {
       await _fs.renameEntity(e.path, newName);
-    } catch (_) {}
-    _reloadBoth();
+      _reloadBoth();
+    } catch (error) {
+      _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
   }
 
   Future<void> _batchRename(PaneController pane) async {
@@ -114,14 +261,22 @@ class _HomePageState extends State<HomePage> {
           BatchRenameDialog(names: entries.map((e) => e.name).toList()),
     );
     if (newNames == null) return;
+    final failures = <String>[];
     for (var i = 0; i < entries.length && i < newNames.length; i++) {
       final n = newNames[i];
       if (n.isEmpty || n == entries[i].name) continue;
       try {
         await _fs.renameEntity(entries[i].path, n);
-      } catch (_) {}
+      } catch (error) {
+        failures.add('${entries[i].name}: $error');
+      }
     }
     _reloadBoth();
+    if (failures.isNotEmpty) {
+      _showOperationMessage(
+        '${tr(context, 'batch_rename')}: ${failures.take(3).join('\n')}',
+      );
+    }
   }
 
   Future<void> _newFolder(PaneController pane) async {
@@ -129,8 +284,104 @@ class _HomePageState extends State<HomePage> {
     if (name == null || name.isEmpty) return;
     try {
       await _fs.createFolder(pane.currentPath, name);
-    } catch (_) {}
-    await pane.refresh();
+      await pane.refresh();
+    } catch (error) {
+      _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
+  }
+
+  Future<void> _sendTo(PaneController pane, PaneController other) async {
+    final selected = pane.selectedEntries;
+    if (selected.isEmpty) return;
+    final targets = <SendToTarget>[];
+    const folders = [
+      (QuickFolder.desktop, Icons.desktop_windows),
+      (QuickFolder.downloads, Icons.download),
+      (QuickFolder.documents, Icons.description),
+      (QuickFolder.videos, Icons.video_library),
+      (QuickFolder.pictures, Icons.image),
+      (QuickFolder.music, Icons.music_note),
+    ];
+    for (final (folder, icon) in folders) {
+      final path = await _platform.getQuickFolderPath(folder);
+      if (path != null) {
+        targets.add(
+          SendToTarget(
+            name: tr(context, folder.localizationKey),
+            path: path,
+            icon: icon,
+          ),
+        );
+      }
+    }
+    if (p.normalize(other.currentPath) != p.normalize(pane.currentPath)) {
+      targets.add(
+        SendToTarget(
+          name: tr(context, 'other_panel'),
+          path: other.currentPath,
+          icon: Icons.compare_arrows,
+        ),
+      );
+    }
+    final roots = await _platform.searchRoots();
+    for (final root in roots) {
+      if (p.normalize(root) == p.normalize(pane.currentPath)) continue;
+      if (targets.any((target) => p.normalize(target.path) == p.normalize(root))) {
+        continue;
+      }
+      targets.add(
+        SendToTarget(name: root, path: root, icon: Icons.storage),
+      );
+    }
+    if (!mounted) return;
+    final choice = await showDialog<SendToSelection>(
+      context: context,
+      builder: (_) => SendToDialog(targets: targets),
+    );
+    if (choice == null) return;
+    try {
+      switch (choice.action) {
+        case SendAction.email:
+          final files = selected.where((entry) => !entry.isDir).toList();
+          if (files.isEmpty) {
+            _showOperationMessage(tr(context, 'email_no_files'));
+            return;
+          }
+          await _platform.composeEmail(files.map((file) => file.path).toList());
+        case SendAction.shortcut:
+          for (final entry in selected) {
+            await _platform.createDesktopShortcut(entry.path);
+          }
+          _showOperationMessage(tr(context, 'send_completed'));
+        case SendAction.copy:
+        case SendAction.move:
+          final destination = choice.path;
+          if (destination == null) return;
+          final failures = <String>[];
+          var completed = 0;
+          for (final entry in selected) {
+            try {
+              if (choice.action == SendAction.copy) {
+                await _fs.copyEntityUnique(entry.path, destination);
+              } else {
+                await _fs.moveEntityUnique(entry.path, destination);
+              }
+              completed++;
+            } catch (error) {
+              failures.add('${entry.name}: $error');
+            }
+          }
+          _reloadBoth();
+          _showOperationMessage(
+            failures.isEmpty
+                ? '${tr(context, 'send_completed')} ($completed)'
+                : '${tr(context, 'operation_failed')} ($completed/${selected.length})\n'
+                    '${failures.take(3).join('\n')}',
+          );
+      }
+    } catch (error) {
+      _showOperationMessage('${tr(context, 'operation_failed')}: $error');
+    }
   }
 
   void _onAction(int paneIdx, String action, FileEntry entry) {
@@ -139,6 +390,12 @@ class _HomePageState extends State<HomePage> {
     switch (action) {
       case 'open':
         _open(entry, pane);
+      case 'open_with':
+        _openWith(entry);
+      case 'compress':
+        _compress(pane);
+      case 'extract':
+        _extract(entry, pane);
       case 'copy':
         _clipPaths = pane.selectedEntries.map((e) => e.path).toList();
         _isCut = false;
@@ -147,6 +404,8 @@ class _HomePageState extends State<HomePage> {
         _isCut = true;
       case 'paste':
         _paste(pane);
+      case 'send_to':
+        _sendTo(pane, other);
       case 'rename':
         _rename(pane, entry);
       case 'batch_rename':
@@ -199,6 +458,8 @@ class _HomePageState extends State<HomePage> {
             _active.selectAll(),
         const SingleActivator(LogicalKeyboardKey.keyM, control: true): () =>
             _batchRename(_active),
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            _searchFiles,
       },
       child: Focus(
         autofocus: true,
@@ -220,15 +481,21 @@ class _HomePageState extends State<HomePage> {
             ),
             actions: [
               IconButton(
-                tooltip: tr(context, 'otken_title'),
-                icon: const Icon(Icons.history),
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => OtkenDialog(
-                    onSnapshotSelected: (p) => _active.cd(p),
+                tooltip: tr(context, 'quick_search'),
+                icon: const Icon(Icons.search),
+                onPressed: _searchFiles,
+              ),
+              if (settings.otkenEnabled)
+                IconButton(
+                  tooltip: tr(context, 'otken_title'),
+                  icon: const Icon(Icons.history),
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => OtkenDialog(
+                      onSnapshotSelected: (p) => _active.cd(p),
+                    ),
                   ),
                 ),
-              ),
               IconButton(
                 tooltip: tr(context, 'edit_dates'),
                 icon: const Icon(Icons.edit_calendar),
@@ -271,7 +538,9 @@ class _HomePageState extends State<HomePage> {
                 tooltip: tr(context, 'settings'),
                 icon: const Icon(Icons.settings),
                 onPressed: () => showDialog(
-                    context: context, builder: (_) => const SettingsDialog()),
+                    context: context,
+                    builder: (_) =>
+                        SettingsDialog(onShowHiddenChanged: _reloadBoth)),
               ),
               IconButton(
                 tooltip: tr(context, 'about'),
@@ -284,28 +553,57 @@ class _HomePageState extends State<HomePage> {
           body: Row(
             children: [
               Expanded(
-                child: FilePane(
-                  controller: _left,
-                  active: _activePane == 0,
-                  locale: settings.locale,
-                  onActivate: () => setState(() => _activePane = 0),
-                  onOpen: (e) => _open(e, _left),
-                  onAction: (a, e) => _onAction(0, a, e),
-                  onNewFolder: () => _newFolder(_left),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Expanded(
+                        child: FilePane(
+                          controller: _left,
+                          active: _activePane == 0,
+                          locale: settings.locale,
+                          onActivate: () => setState(() => _activePane = 0),
+                          onOpen: (e) => _open(e, _left),
+                          onAction: (a, e) => _onAction(0, a, e),
+                          onNewFolder: () => _newFolder(_left),
+                          onQuickFolder: (folder) =>
+                              _goQuickFolder(_left, folder),
+                        ),
+                      ),
+                      if (settings.showLeftPreview)
+                        PreviewPanel(
+                          controller: _left,
+                          width: constraints.maxWidth < 640 ? 180 : 240,
+                        ),
+                    ],
+                  ),
                 ),
               ),
               Expanded(
-                child: FilePane(
-                  controller: _right,
-                  active: _activePane == 1,
-                  locale: settings.locale,
-                  onActivate: () => setState(() => _activePane = 1),
-                  onOpen: (e) => _open(e, _right),
-                  onAction: (a, e) => _onAction(1, a, e),
-                  onNewFolder: () => _newFolder(_right),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Expanded(
+                        child: FilePane(
+                          controller: _right,
+                          active: _activePane == 1,
+                          locale: settings.locale,
+                          onActivate: () => setState(() => _activePane = 1),
+                          onOpen: (e) => _open(e, _right),
+                          onAction: (a, e) => _onAction(1, a, e),
+                          onNewFolder: () => _newFolder(_right),
+                          onQuickFolder: (folder) =>
+                              _goQuickFolder(_right, folder),
+                        ),
+                      ),
+                      if (settings.showRightPreview)
+                        PreviewPanel(
+                          controller: _right,
+                          width: constraints.maxWidth < 640 ? 180 : 240,
+                        ),
+                    ],
+                  ),
                 ),
               ),
-              PreviewPanel(controller: _active),
             ],
           ),
         ),

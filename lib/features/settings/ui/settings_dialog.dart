@@ -1,27 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/i18n/l10n.dart';
 import '../../../core/settings/settings_controller.dart';
+import 'about_dialog.dart';
+import 'theme_dialog.dart';
 
-/// Paramètres persistants : fichiers cachés (même état que le bouton
-/// rapide de la barre + Ctrl+H) et activation d'Ötken.
-class SettingsDialog extends StatefulWidget {
-  const SettingsDialog({super.key});
-  @override
-  State<SettingsDialog> createState() => _SettingsDialogState();
-}
+class SettingsDialog extends StatelessWidget {
+  const SettingsDialog({super.key, required this.onShowHiddenChanged});
 
-class _SettingsDialogState extends State<SettingsDialog> {
-  bool _otkenEnabled = true;
-
-  @override
-  void initState() {
-    super.initState();
-    SharedPreferences.getInstance().then((p) => setState(
-        () => _otkenEnabled = p.getBool('otkenEnabled') ?? true));
-  }
+  final VoidCallback onShowHiddenChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -30,26 +18,74 @@ class _SettingsDialogState extends State<SettingsDialog> {
       title: Text(tr(context, 'settings')),
       content: SizedBox(
         width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SwitchListTile(
-              dense: true,
-              title: Text(tr(context, 'show_hidden')),
-              value: s.showHidden,
-              onChanged: (_) => s.toggleHidden(),
-            ),
-            SwitchListTile(
-              dense: true,
-              title: Text(tr(context, 'otken_title')),
-              value: _otkenEnabled,
-              onChanged: (v) async {
-                setState(() => _otkenEnabled = v);
-                final p = await SharedPreferences.getInstance();
-                await p.setBool('otkenEnabled', v);
-              },
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SwitchListTile(
+                dense: true,
+                title: Text(tr(context, 'show_hidden')),
+                value: s.showHidden,
+                onChanged: (_) async {
+                  await s.toggleHidden();
+                  onShowHiddenChanged();
+                },
+              ),
+              SwitchListTile(
+                dense: true,
+                title: Text(tr(context, 'left_preview')),
+                value: s.showLeftPreview,
+                onChanged: s.setShowLeftPreview,
+              ),
+              SwitchListTile(
+                dense: true,
+                title: Text(tr(context, 'right_preview')),
+                value: s.showRightPreview,
+                onChanged: s.setShowRightPreview,
+              ),
+              SwitchListTile(
+                dense: true,
+                title: Text(tr(context, 'otken_title')),
+                value: s.otkenEnabled,
+                onChanged: s.setOtkenEnabled,
+              ),
+              const Divider(),
+              DropdownButtonFormField<String>(
+                value: s.locale.languageCode,
+                decoration:
+                    InputDecoration(labelText: tr(context, 'language_title')),
+                items: [
+                  for (final language in L10n.nativeNames.entries)
+                    DropdownMenuItem(
+                      value: language.key,
+                      child: Text(language.value),
+                    ),
+                ],
+                onChanged: (code) {
+                  if (code != null) s.setLocale(Locale(code));
+                },
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.palette_outlined),
+                  label: Text(tr(context, 'theme_title')),
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => const ThemeDialog(),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.policy_outlined),
+                  label: Text(tr(context, 'legal_information')),
+                  onPressed: () => showKorunLicenses(context),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
