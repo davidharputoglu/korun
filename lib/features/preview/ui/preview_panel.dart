@@ -205,11 +205,28 @@ class PreviewPanel extends StatelessWidget {
           }
           final data = snap.data;
           if (data == null || data.entries.isEmpty) {
-            return _centerIcon(
-              context,
-              Icons.folder_zip,
-              const Color(0xFFFFA726),
-              e.name,
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.folder_zip,
+                      size: 36,
+                      color: Color(0xFFFFA726),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(e.name, textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(context, 'archive_preview_unsupported'),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
             );
           }
           final imagesByName = {

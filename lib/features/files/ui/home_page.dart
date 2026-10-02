@@ -12,6 +12,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../otken/ui/otken_dialog.dart';
 import '../../preview/ui/preview_panel.dart';
 import '../../settings/ui/about_dialog.dart';
+import '../../settings/ui/guide_dialog.dart';
 import '../../settings/ui/settings_dialog.dart';
 import '../../settings/ui/theme_dialog.dart';
 import '../data/models/file_entry.dart';
@@ -40,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   int _activePane = 0;
   List<String> _clipPaths = const [];
   bool _isCut = false;
+  bool _firstGuideScheduled = false;
 
   @override
   void initState() {
@@ -153,13 +155,32 @@ class _HomePageState extends State<HomePage> {
     final initialName = entries.length == 1
         ? p.basenameWithoutExtension(entries.first.name)
         : 'archive';
-    final name = await askArchiveName(context, initialName);
-    if (name == null) return;
-    final archiveName = name.toLowerCase().endsWith('.zip') ? name : '$name.zip';
+    final request = await askArchiveName(
+      context,
+      initialName,
+      allowStandaloneFormats:
+          entries.length == 1 && !entries.first.isDir,
+    );
+    if (request == null) return;
+    var baseName = request.name;
+    final existingExtension = ArchiveFormat.values
+        .map((format) => format.extension)
+        .toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    for (final extension in existingExtension) {
+      if (baseName.toLowerCase().endsWith(extension)) {
+        baseName = baseName.substring(0, baseName.length - extension.length);
+        break;
+      }
+    }
+    final archiveName = '$baseName${request.format.extension}';
     try {
-      final archivePath = await _fs.compressToZip(
+      final archivePath = await _fs.compressToArchive(
         entries.map((entry) => entry.path).toList(),
         p.join(pane.currentPath, archiveName),
+        format: request.format,
+        engine: request.engine,
+        compressionLevel: request.compressionLevel,
       );
       await pane.refresh();
       if (mounted) _showOperationMessage(
@@ -172,7 +193,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _extract(FileEntry entry, PaneController pane) async {
     try {
-      final outputPath = await _fs.extractZip(entry.path);
+      final outputPath = await _fs.extractArchive(entry.path);
       await pane.refresh();
       if (mounted) _showOperationMessage(
         '${tr(context, 'archive_extracted')}: ${p.basename(outputPath)}',
@@ -430,6 +451,14 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsController>();
+    if (settings.isLoaded && !_firstGuideScheduled) {
+      _firstGuideScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && context.read<SettingsController>().showFirstUseGuide) {
+          showUserGuide(context);
+        }
+      });
+    }
     final scheme = Theme.of(context).colorScheme;
     return CallbackShortcuts(
       bindings: {

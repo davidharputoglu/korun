@@ -12,8 +12,15 @@ previews alongside each pane.
   covers, archive contents, Office documents, and hexadecimal views of binary
   files.
 - Context-menu actions for opening, **Open with…** on Linux and Windows, copy,
-  cut, paste, rename, delete, properties, ZIP compression, and safe ZIP
-  extraction.
+  cut, paste, rename, delete, properties, and creation of ZIP, TAR, TAR.GZ,
+  TAR.BZ2, TAR.XZ, and standalone GZIP/BZIP2/XZ files. If 7-Zip or WinRAR/RAR
+  is installed, it can also create 7z or RAR archives. Körün offers a choice
+  between its built-in encoder and each detected external archiver, with a
+  compression-level control where the selected format and encoder support it.
+  TAR is uncompressed; the built-in BZIP2 and XZ encoders use fixed levels, so
+  choose 7-Zip to adjust compression for those formats.
+- Safe extraction of ZIP/CBZ and TAR variants, standalone GZIP/BZIP2/XZ
+  decompression, and extraction of 7z/RAR using compatible installed tools.
 - Light, dark, and OLED-black themes; preset accent colors and custom themes;
   12 languages, including English, French, and Turkish.
 - Hidden files, list/grid views, sorting, keyboard shortcuts, date editing,
@@ -23,6 +30,8 @@ previews alongside each pane.
   and modified date. `content:` searches text files up to 1 MiB. Unmounted
   network locations can be added from the search window.
 - Built-in legal information page listing Flutter dependency licenses.
+- Archive previews list entries and show a limited set of contained images for
+  built-in ZIP/CBZ and TAR variants. 7z/RAR previews are not built in.
 
 ### Previews and optional dependencies
 - `ffmpeg` is required to generate video thumbnails and audio covers. Without
@@ -30,6 +39,8 @@ previews alongside each pane.
   unavailable instead of displaying binary data as text.
 - LibreOffice (`soffice`) is required to convert Office documents to PDF for
   preview.
+- 7-Zip or WinRAR/RAR is optional for 7z/RAR operations; Körün detects
+  compatible command-line tools and offers them as a compression method.
 - These tools are not bundled with the release packages.
 
 ### Legal information
@@ -83,8 +94,15 @@ avec des aperçus indépendants à côté de chaque panneau.
   audio, contenu des archives, documents Office et vue hexadécimale des fichiers
   binaires.
 - Menu contextuel pour ouvrir, **Ouvrir avec…** sous Linux et Windows, copier,
-  couper, coller, renommer, supprimer, afficher les propriétés, compresser en
-  ZIP et extraire des archives ZIP de manière sécurisée.
+  couper, coller, renommer, supprimer, afficher les propriétés et créer des
+  archives ZIP, TAR, TAR.GZ, TAR.BZ2, TAR.XZ et des fichiers GZIP/BZIP2/XZ
+  autonomes. Si 7-Zip ou WinRAR/RAR est installé, Körün peut aussi créer des
+  archives 7z ou RAR et propose le choix entre Körün et les outils détectés,
+  ainsi qu’un niveau de compression réglable lorsque le format et l’outil le
+  permettent. TAR n’est pas compressé ; les encodeurs BZIP2 et XZ intégrés à
+  Körün utilisent un niveau fixe. Choisissez 7-Zip pour le régler.
+- Extraction sécurisée de ZIP/CBZ et des variantes TAR, décompression GZIP,
+  BZIP2 et XZ autonomes, et extraction 7z/RAR avec un outil compatible installé.
 - Thèmes clair, sombre et noir OLED, couleurs d’accent prédéfinies et thèmes
   personnalisés ; 12 langues, dont l’anglais, le français et le turc.
 - Fichiers cachés, vues liste/grille, tri, raccourcis clavier, édition des
@@ -95,6 +113,9 @@ avec des aperçus indépendants à côté de chaque panneau.
   Les emplacements réseau non montés peuvent être ajoutés depuis la recherche.
 - Page d’informations légales intégrée listant les licences des dépendances
   Flutter.
+- Les aperçus d’archives listent les entrées et montrent un nombre limité
+  d’images contenues dans les formats intégrés ZIP/CBZ et TAR. Les aperçus 7z
+  et RAR ne sont pas intégrés.
 
 ### Aperçus et dépendances facultatives
 - `ffmpeg` est nécessaire pour générer les miniatures vidéo et les pochettes
@@ -103,6 +124,9 @@ avec des aperçus indépendants à côté de chaque panneau.
   comme du texte.
 - LibreOffice (`soffice`) est nécessaire pour convertir les documents Office
   en PDF afin de les prévisualiser.
+- 7-Zip ou WinRAR/RAR est facultatif pour les opérations 7z/RAR ; Körün détecte
+  les outils en ligne de commande compatibles et les propose comme méthode de
+  compression.
 - Ces outils ne sont pas inclus dans les paquets publiés.
 
 ### Informations légales
@@ -158,8 +182,15 @@ sunan çift panelli bir dosya yöneticisidir.
   kapakları; arşiv içerikleri; Office belgeleri ve ikili dosyalar için
   onaltılık görünüm.
 - Açma, Linux ve Windows’ta **Birlikte aç…**, kopyalama, kesme, yapıştırma,
-  yeniden adlandırma, silme, özellikleri görüntüleme, ZIP sıkıştırma ve güvenli
-  ZIP çıkarma için bağlam menüsü.
+  yeniden adlandırma, silme, özellikleri görüntüleme ve ZIP, TAR, TAR.GZ,
+  TAR.BZ2, TAR.XZ arşivleri ile bağımsız GZIP/BZIP2/XZ dosyaları oluşturma.
+  7-Zip veya WinRAR/RAR kuruluysa 7z ya da RAR arşivleri de oluşturulabilir ve
+  Körün ile algılanan araçlar arasında seçim sunulur; biçim ve araç
+  desteklediğinde sıkıştırma düzeyi de ayarlanabilir. TAR sıkıştırılmayan bir
+  biçimdir; Körün’ün yerleşik BZIP2 ve XZ kodlayıcıları sabit düzey kullanır.
+  Bu biçimlerin düzeyini ayarlamak için 7-Zip’i seçin.
+- ZIP/CBZ ve TAR çeşitlerini güvenli çıkarma, bağımsız GZIP/BZIP2/XZ dosyalarını
+  açma ve uyumlu araçlar kuruluysa 7z/RAR arşivlerini çıkarma.
 - Açık, koyu ve OLED siyah temalar; hazır vurgu renkleri ve özel temalar;
   İngilizce, Fransızca ve Türkçe dâhil 12 dil.
 - Gizli dosyalar, liste/ızgara görünümleri, sıralama, klavye kısayolları, tarih
@@ -171,6 +202,8 @@ sunan çift panelli bir dosya yöneticisidir.
   eklenebilir.
 - Flutter bağımlılıklarının lisanslarını listeleyen yerleşik yasal bilgiler
   sayfası.
+- Arşiv önizlemesi, desteklenen ZIP/CBZ ve TAR çeşitlerinin içerik listesini ve
+  sınırlı sayıda görselini gösterir. 7z/RAR önizlemesi yerleşik değildir.
 
 ### Önizlemeler ve isteğe bağlı bağımlılıklar
 - Video küçük resimleri ve ses kapakları oluşturmak için `ffmpeg` gerekir.
@@ -178,6 +211,8 @@ sunan çift panelli bir dosya yöneticisidir.
   simgesini ve önizlemenin kullanılamadığı bilgisini gösterir.
 - Office belgelerini önizleme için PDF’ye dönüştürmek üzere LibreOffice
   (`soffice`) gerekir.
+- 7z/RAR işlemleri için 7-Zip veya WinRAR/RAR isteğe bağlıdır; Körün uyumlu
+  komut satırı araçlarını algılar ve sıkıştırma yöntemi olarak sunar.
 - Bu araçlar yayımlanan paketlere dâhil değildir.
 
 ### Yasal bilgiler

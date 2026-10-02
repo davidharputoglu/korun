@@ -9,6 +9,86 @@ import '../models/file_entry.dart';
 
 enum SortBy { name, size, date }
 enum ViewMode { list, grid }
+enum ArchiveFormat {
+  zip('.zip'),
+  tar('.tar'),
+  tarGzip('.tar.gz'),
+  tarBzip2('.tar.bz2'),
+  tarXz('.tar.xz'),
+  sevenZip('.7z'),
+  rar('.rar'),
+  gzip('.gz'),
+  bzip2('.bz2'),
+  xz('.xz');
+
+  const ArchiveFormat(this.extension);
+
+  final String extension;
+
+  String get localizationKey => switch (this) {
+        ArchiveFormat.zip => 'archive_format_zip',
+        ArchiveFormat.tar => 'archive_format_tar',
+        ArchiveFormat.tarGzip => 'archive_format_tar_gzip',
+        ArchiveFormat.tarBzip2 => 'archive_format_tar_bzip2',
+        ArchiveFormat.tarXz => 'archive_format_tar_xz',
+        ArchiveFormat.sevenZip => 'archive_format_7z',
+        ArchiveFormat.rar => 'archive_format_rar',
+        ArchiveFormat.gzip => 'archive_format_gzip',
+        ArchiveFormat.bzip2 => 'archive_format_bzip2',
+        ArchiveFormat.xz => 'archive_format_xz',
+      };
+
+  String get sevenZipType => switch (this) {
+        ArchiveFormat.zip => 'zip',
+        ArchiveFormat.tar => 'tar',
+        ArchiveFormat.sevenZip => '7z',
+        ArchiveFormat.rar => throw UnsupportedError(
+            'RAR creation requires WinRAR or the RAR command-line tool.',
+          ),
+        ArchiveFormat.tarGzip => 'gzip',
+        ArchiveFormat.tarBzip2 => 'bzip2',
+        ArchiveFormat.tarXz => 'xz',
+        ArchiveFormat.gzip => 'gzip',
+        ArchiveFormat.bzip2 => 'bzip2',
+        ArchiveFormat.xz => 'xz',
+        _ => throw UnsupportedError(
+            '7-Zip does not create ${extension} archives via a single pass.',
+          ),
+      };
+
+  bool supportsCompressionLevel(CompressionEngine engine) {
+    if (this == ArchiveFormat.tar) return false;
+    if (engine == CompressionEngine.winRar) return this == ArchiveFormat.rar;
+    if (engine == CompressionEngine.sevenZip) return true;
+    return switch (this) {
+      ArchiveFormat.zip ||
+      ArchiveFormat.tarGzip ||
+      ArchiveFormat.gzip => true,
+      ArchiveFormat.tarBzip2 ||
+      ArchiveFormat.tarXz ||
+      ArchiveFormat.bzip2 ||
+      ArchiveFormat.xz ||
+      ArchiveFormat.sevenZip ||
+      ArchiveFormat.rar ||
+      ArchiveFormat.tar => false,
+    };
+  }
+}
+
+enum CompressionEngine { korun, sevenZip, winRar }
+
+enum _ArchiveType {
+  zip,
+  tar,
+  tarGzip,
+  tarBzip2,
+  tarXz,
+  sevenZip,
+  rar,
+  gzipFile,
+  bzip2File,
+  xzFile,
+}
 
 class OpenWithApp {
   const OpenWithApp({required this.name, required this.desktopFile});
@@ -193,9 +273,28 @@ class FileSystemService {
   Future<String> compressToZip(
     List<String> paths,
     String archivePath,
-  ) async {
+  ) =>
+      compressToArchive(paths, archivePath, format: ArchiveFormat.zip);
+
+  Future<String> compressToArchive(
+    List<String> paths,
+    String archivePath, {
+    required ArchiveFormat format,
+    CompressionEngine engine = CompressionEngine.korun,
+    int compressionLevel = 5,
+  }) async {
     if (paths.isEmpty) {
       throw ArgumentError('Select at least one file or folder.');
+    }
+    if (compressionLevel < 0 || compressionLevel > 9) {
+      throw RangeError.range(compressionLevel, 0, 9, 'compressionLevel');
+    }
+    if (!archivePath.toLowerCase().endsWith(format.extension)) {
+      throw ArgumentError.value(
+        archivePath,
+        'archivePath',
+        'Archive path must end with ${format.extension}.',
+      );
     }
     if (await FileSystemEntity.type(
           archivePath,
@@ -205,13 +304,261 @@ class FileSystemService {
       throw FileSystemException('The archive already exists.', archivePath);
     }
 
+    if (engine == CompressionEngine.sevenZip) {
+      return _compressWithSevenZip(
+        paths,
+        archivePath,
+        format,
+        compressionLevel,
+      );
+    }
+    if (engine == CompressionEngine.winRar) {
+      if (format != ArchiveFormat.rar) {
+        throw UnsupportedError('WinRAR is used for RAR archive creation.');
+      }
+      return _compressWithWinRar(paths, archivePath, compressionLevel);
+    }
+    if (format == ArchiveFormat.sevenZip) {
+      throw UnsupportedError('7z archive creation requires 7-Zip.');
+    }
+    if (format == ArchiveFormat.rar) {
+      throw UnsupportedError('RAR archive creation requires WinRAR.');
+    }
+    if (format == ArchiveFormat.gzip ||
+        format == ArchiveFormat.bzip2 ||
+        format == ArchiveFormat.xz) {
+      return _compressStandalone(
+        paths,
+        archivePath,
+        format,
+        compressionLevel,
+      );
+    }
+    if (format != ArchiveFormat.zip) {
+      return _compressTarArchive(
+        paths,
+        archivePath,
+        format,
+        compressionLevel,
+      );
+    }
+    return _compressZipArchive(paths, archivePath, compressionLevel);
+  }
+
+  static Future<String?> findSevenZipExecutable() async {
+    final executableNames = Platform.isWindows
+        ? const ['7z.exe', '7zz.exe', '7za.exe']
+        : const ['7zz', '7z', '7za'];
+    final candidates = <String>[];
+    if (Platform.isWindows) {
+      final programFiles = [
+        Platform.environment['ProgramFiles'],
+        Platform.environment['ProgramFiles(x86)'],
+      ].whereType<String>();
+      for (final directory in programFiles) {
+        candidates.add(p.join(directory, '7-Zip', '7z.exe'));
+      }
+    }
+    for (final directory in (Platform.environment['PATH'] ?? '')
+        .split(Platform.isWindows ? ';' : ':')) {
+      if (directory.isEmpty) continue;
+      for (final name in executableNames) {
+        candidates.add(p.join(directory, name));
+      }
+    }
+    for (final candidate in candidates) {
+      if (await File(candidate).exists()) return candidate;
+    }
+    return null;
+  }
+
+  static Future<String?> findWinRarExecutable() async {
+    final candidates = <String>[];
+    if (Platform.isWindows) {
+      for (final directory in [
+        Platform.environment['ProgramFiles'],
+        Platform.environment['ProgramFiles(x86)'],
+      ].whereType<String>()) {
+        candidates.add(p.join(directory, 'WinRAR', 'Rar.exe'));
+      }
+      for (final directory in (Platform.environment['PATH'] ?? '').split(';')) {
+        if (directory.isNotEmpty) candidates.add(p.join(directory, 'Rar.exe'));
+      }
+    } else {
+      for (final directory in (Platform.environment['PATH'] ?? '').split(':')) {
+        if (directory.isNotEmpty) candidates.add(p.join(directory, 'rar'));
+      }
+    }
+    for (final candidate in candidates) {
+      if (await File(candidate).exists()) return candidate;
+    }
+    return null;
+  }
+
+  Future<String> _compressWithSevenZip(
+    List<String> paths,
+    String archivePath,
+    ArchiveFormat format,
+    int compressionLevel,
+  ) async {
+    final executable = await findSevenZipExecutable();
+    if (executable == null) {
+      throw UnsupportedError('7-Zip is not installed or was not found.');
+    }
+    final type = format.sevenZipType;
+    final parent = Directory(p.dirname(archivePath));
+    final staging = await parent.createTemp('.korun-compress-');
+    final stagedArchive = p.join(staging.path, 'archive${format.extension}');
+    final inputs = _externalArchiveInputs(paths);
+    try {
+      var inputsForArchive = inputs.paths;
+      var workingDirectory = inputs.workingDirectory;
+      if (format == ArchiveFormat.tarGzip ||
+          format == ArchiveFormat.tarBzip2 ||
+          format == ArchiveFormat.tarXz) {
+        final tarPath = p.join(staging.path, 'payload.tar');
+        await _compressTarArchive(
+          paths,
+          tarPath,
+          ArchiveFormat.tar,
+          compressionLevel,
+        );
+        inputsForArchive = [tarPath];
+        workingDirectory = staging.path;
+      }
+      final result = await Process.run(
+        executable,
+        [
+          'a',
+          '-t$type',
+          '-mx=$compressionLevel',
+          stagedArchive,
+          ...inputsForArchive,
+        ],
+        workingDirectory: workingDirectory,
+      );
+      if (result.exitCode != 0) {
+        throw FileSystemException(
+          '7-Zip failed: ${result.stderr}',
+          archivePath,
+        );
+      }
+      if (await FileSystemEntity.type(archivePath, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        throw FileSystemException('The archive already exists.', archivePath);
+      }
+      await File(stagedArchive).rename(archivePath);
+      return archivePath;
+    } finally {
+      if (await staging.exists()) await staging.delete(recursive: true);
+    }
+  }
+
+  Future<String> _compressWithWinRar(
+    List<String> paths,
+    String archivePath,
+    int compressionLevel,
+  ) async {
+    final executable = await findWinRarExecutable();
+    if (executable == null) {
+      throw UnsupportedError('WinRAR/RAR was not found.');
+    }
+    final parent = Directory(p.dirname(archivePath));
+    final staging = await parent.createTemp('.korun-compress-');
+    final stagedArchive =
+        p.join(staging.path, 'archive${p.extension(archivePath)}');
+    final inputs = _externalArchiveInputs(paths);
+    try {
+      final result = await Process.run(
+        executable,
+        [
+          'a',
+          '-r',
+          '-m${(compressionLevel * 5 / 9).round()}',
+          stagedArchive,
+          ...inputs.paths,
+        ],
+        workingDirectory: inputs.workingDirectory,
+      );
+      if (result.exitCode != 0) {
+        throw FileSystemException(
+          'WinRAR/RAR failed: ${result.stderr}',
+          archivePath,
+        );
+      }
+      if (await FileSystemEntity.type(archivePath, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        throw FileSystemException('The archive already exists.', archivePath);
+      }
+      await File(stagedArchive).rename(archivePath);
+      return archivePath;
+    } finally {
+      if (await staging.exists()) await staging.delete(recursive: true);
+    }
+  }
+
+  ({String workingDirectory, List<String> paths}) _externalArchiveInputs(
+    List<String> paths,
+  ) {
+    final workingDirectory = p.dirname(paths.first);
+    if (paths.every(
+      (path) => p.equals(p.dirname(path), workingDirectory),
+    )) {
+      return (
+        workingDirectory: workingDirectory,
+        paths: paths.map(p.basename).toList(),
+      );
+    }
+    return (
+      workingDirectory: Directory.current.path,
+      paths: paths,
+    );
+  }
+
+  Future<String> _compressStandalone(
+    List<String> paths,
+    String archivePath,
+    ArchiveFormat format,
+    int compressionLevel,
+  ) async {
+    if (paths.length != 1 ||
+        await FileSystemEntity.type(paths.single, followLinks: false) !=
+            FileSystemEntityType.file) {
+      throw ArgumentError(
+        'GZIP, BZIP2, and XZ standalone formats require exactly one file.',
+      );
+    }
+    final contents = await File(paths.single).readAsBytes();
+    final compressed = switch (format) {
+      ArchiveFormat.gzip =>
+        GZipEncoder().encode(contents, level: compressionLevel),
+      ArchiveFormat.bzip2 => BZip2Encoder().encode(contents),
+      ArchiveFormat.xz => XZEncoder().encode(contents),
+      _ => throw ArgumentError.value(format, 'format'),
+    };
+    final output = File(archivePath);
+    await output.create(exclusive: true);
+    try {
+      await output.writeAsBytes(compressed, flush: true);
+    } catch (_) {
+      if (await output.exists()) await output.delete();
+      rethrow;
+    }
+    return archivePath;
+  }
+
+  Future<String> _compressZipArchive(
+    List<String> paths,
+    String archivePath,
+    int compressionLevel,
+  ) async {
     final output = File(archivePath);
     await output.create(exclusive: true);
     OutputFileStream? outputStream;
     final encoder = ZipEncoder();
     try {
       outputStream = OutputFileStream(archivePath);
-      encoder.startEncode(outputStream);
+      encoder.startEncode(outputStream, level: compressionLevel);
       for (final sourcePath in paths) {
         final sourceName = p.basename(sourcePath);
         final type =
@@ -239,6 +586,124 @@ class FileSystemService {
       rethrow;
     }
     return archivePath;
+  }
+
+  Future<String> _compressTarArchive(
+    List<String> paths,
+    String archivePath,
+    ArchiveFormat format,
+    int compressionLevel,
+  ) async {
+    final archive = Archive();
+    final inputStreams = <InputFileStream>[];
+    try {
+      for (final sourcePath in paths) {
+        final sourceName = p.basename(sourcePath);
+        final type =
+            await FileSystemEntity.type(sourcePath, followLinks: false);
+        if (type == FileSystemEntityType.file) {
+          await _addFileToTar(
+            archive,
+            File(sourcePath),
+            sourceName,
+            inputStreams,
+          );
+        } else if (type == FileSystemEntityType.directory) {
+          await _addDirectoryToTar(
+            archive,
+            Directory(sourcePath),
+            sourceName,
+            inputStreams,
+          );
+        } else {
+          throw FileSystemException(
+            'Unsupported file system entry.',
+            sourcePath,
+          );
+        }
+      }
+
+      if (format == ArchiveFormat.tar) {
+        final output = File(archivePath);
+        await output.create(exclusive: true);
+        OutputFileStream? outputStream;
+        try {
+          outputStream = OutputFileStream(archivePath);
+          TarEncoder().encode(archive, output: outputStream);
+          await outputStream.close();
+        } catch (_) {
+          if (outputStream != null) await outputStream.close();
+          if (await output.exists()) await output.delete();
+          rethrow;
+        }
+        return archivePath;
+      }
+
+      final tarBytes = TarEncoder().encode(archive);
+      final bytes = switch (format) {
+        ArchiveFormat.tarGzip =>
+          GZipEncoder().encode(tarBytes, level: compressionLevel),
+        ArchiveFormat.tarBzip2 => BZip2Encoder().encode(tarBytes),
+        ArchiveFormat.tarXz => XZEncoder().encode(tarBytes),
+        ArchiveFormat.zip ||
+        ArchiveFormat.tar ||
+        ArchiveFormat.sevenZip ||
+        ArchiveFormat.rar ||
+        ArchiveFormat.gzip ||
+        ArchiveFormat.bzip2 ||
+        ArchiveFormat.xz =>
+          throw ArgumentError.value(format, 'format'),
+      };
+      final output = File(archivePath);
+      await output.create(exclusive: true);
+      try {
+        await output.writeAsBytes(bytes, flush: true);
+      } catch (_) {
+        if (await output.exists()) await output.delete();
+        rethrow;
+      }
+      return archivePath;
+    } finally {
+      for (final inputStream in inputStreams) {
+        await inputStream.close();
+      }
+    }
+  }
+
+  Future<void> _addDirectoryToTar(
+    Archive archive,
+    Directory directory,
+    String archiveDirectory,
+    List<InputFileStream> inputStreams,
+  ) async {
+    final children =
+        await directory.list(followLinks: false, recursive: false).toList();
+    if (children.isEmpty) {
+      archive.addFile(ArchiveFile.directory('$archiveDirectory/'));
+      return;
+    }
+    for (final child in children) {
+      final name = p.posix.join(archiveDirectory, p.basename(child.path));
+      if (child is Directory) {
+        await _addDirectoryToTar(archive, child, name, inputStreams);
+      } else if (child is File) {
+        await _addFileToTar(archive, child, name, inputStreams);
+      }
+    }
+  }
+
+  Future<void> _addFileToTar(
+    Archive archive,
+    File file,
+    String archivePath,
+    List<InputFileStream> inputStreams,
+  ) async {
+    final input = InputFileStream(file.path);
+    inputStreams.add(input);
+    final entry = ArchiveFile.stream(archivePath, input)
+      ..lastModTime =
+          (await file.lastModified()).millisecondsSinceEpoch ~/ 1000;
+    archive.addFile(entry);
   }
 
   Future<void> _addDirectoryToArchive(
@@ -295,18 +760,61 @@ class FileSystemService {
     }
   }
 
-  Future<String> extractZip(String archivePath) async {
-    if (!archivePath.toLowerCase().endsWith('.zip')) {
-      throw FileSystemException('Only ZIP archives are supported.', archivePath);
+  Future<String> extractZip(String archivePath) => extractArchive(archivePath);
+
+  Future<String> extractArchive(String archivePath) async {
+    final lowerPath = archivePath.toLowerCase();
+    final archiveType = _archiveType(lowerPath);
+    if (archiveType == null) {
+      throw FileSystemException(
+        'Unsupported archive format. Supported: ZIP/CBZ, TAR, TAR.GZ, '
+        'TAR.BZ2, TAR.XZ, 7z, RAR, and standalone GZIP, BZIP2, and XZ files.',
+        archivePath,
+      );
+    }
+    if (const {
+      _ArchiveType.gzipFile,
+      _ArchiveType.bzip2File,
+      _ArchiveType.xzFile,
+    }.contains(archiveType)) {
+      return _extractCompressedFile(archivePath, archiveType);
+    }
+    if (archiveType == _ArchiveType.sevenZip ||
+        archiveType == _ArchiveType.rar) {
+      return _extractWithArchiveTool(archivePath, archiveType);
     }
     final parentPath = p.dirname(archivePath);
-    final archiveName = p.basenameWithoutExtension(archivePath);
+    final archiveName = _archiveBaseName(archivePath, archiveType);
     var outputPath = await _availableExtractionPath(parentPath, archiveName);
 
-    final input = InputFileStream(archivePath);
+    InputFileStream? input;
     Directory? staging;
     try {
-      final archive = ZipDecoder().decodeStream(input);
+      final archive = switch (archiveType) {
+        _ArchiveType.zip => () {
+            input = InputFileStream(archivePath);
+            return ZipDecoder().decodeStream(input!);
+          }(),
+        _ArchiveType.tar => TarDecoder().decodeBytes(
+            File(archivePath).readAsBytesSync(),
+          ),
+        _ArchiveType.tarGzip => TarDecoder().decodeBytes(
+            GZipDecoder().decodeBytes(File(archivePath).readAsBytesSync()),
+          ),
+        _ArchiveType.tarBzip2 => TarDecoder().decodeBytes(
+            BZip2Decoder().decodeBytes(File(archivePath).readAsBytesSync()),
+          ),
+        _ArchiveType.tarXz => TarDecoder().decodeBytes(
+            XZDecoder().decodeBytes(File(archivePath).readAsBytesSync()),
+          ),
+        _ArchiveType.sevenZip ||
+        _ArchiveType.rar =>
+          throw StateError('External archive formats are extracted separately.'),
+        _ArchiveType.gzipFile ||
+        _ArchiveType.bzip2File ||
+        _ArchiveType.xzFile =>
+          throw StateError('Standalone codecs are extracted separately.'),
+      };
       staging =
           await Directory(parentPath).createTemp('.korun-extract-');
       for (final entry in archive) {
@@ -316,23 +824,23 @@ class FileSystemService {
             RegExp(r'^[a-zA-Z]:').hasMatch(normalizedName) ||
             segments.contains('..') ||
             entry.isSymbolicLink) {
-          throw FormatException('Unsafe path in ZIP archive: ${entry.name}');
+          throw FormatException('Unsafe path in archive: ${entry.name}');
         }
         if (normalizedName.isEmpty || normalizedName == '.') continue;
         final destination = p.normalize(p.join(staging.path, normalizedName));
         if (!p.isWithin(staging.path, destination)) {
-          throw FormatException('Unsafe path in ZIP archive: ${entry.name}');
+          throw FormatException('Unsafe path in archive: ${entry.name}');
         }
         if (entry.isDirectory) {
           await Directory(destination).create(recursive: true);
-        } else {
+        } else if (entry.isFile) {
           if (await FileSystemEntity.type(
                 destination,
                 followLinks: false,
               ) !=
               FileSystemEntityType.notFound) {
             throw FormatException(
-              'Duplicate path in ZIP archive: ${entry.name}',
+              'Duplicate path in archive: ${entry.name}',
             );
           }
           await Directory(p.dirname(destination)).create(recursive: true);
@@ -342,6 +850,10 @@ class FileSystemService {
           } finally {
             await output.close();
           }
+        } else {
+          throw FormatException(
+            'Unsupported special entry in archive: ${entry.name}',
+          );
         }
       }
       outputPath = await _availableExtractionPath(parentPath, archiveName);
@@ -352,9 +864,155 @@ class FileSystemService {
       }
       rethrow;
     } finally {
-      await input.close();
+      await input?.close();
     }
     return outputPath;
+  }
+
+  _ArchiveType? _archiveType(String lowerPath) {
+    if (lowerPath.endsWith('.zip') || lowerPath.endsWith('.cbz')) {
+      return _ArchiveType.zip;
+    }
+    if (lowerPath.endsWith('.tar.gz') || lowerPath.endsWith('.tgz')) {
+      return _ArchiveType.tarGzip;
+    }
+    if (lowerPath.endsWith('.tar.bz2') ||
+        lowerPath.endsWith('.tbz') ||
+        lowerPath.endsWith('.tbz2')) {
+      return _ArchiveType.tarBzip2;
+    }
+    if (lowerPath.endsWith('.tar.xz') || lowerPath.endsWith('.txz')) {
+      return _ArchiveType.tarXz;
+    }
+    if (lowerPath.endsWith('.7z')) return _ArchiveType.sevenZip;
+    if (lowerPath.endsWith('.rar')) return _ArchiveType.rar;
+    if (lowerPath.endsWith('.tar')) return _ArchiveType.tar;
+    if (lowerPath.endsWith('.gz')) return _ArchiveType.gzipFile;
+    if (lowerPath.endsWith('.bz2')) return _ArchiveType.bzip2File;
+    if (lowerPath.endsWith('.xz')) return _ArchiveType.xzFile;
+    return null;
+  }
+
+  String _archiveBaseName(String archivePath, _ArchiveType type) {
+    final name = p.basename(archivePath);
+    final suffix = switch (type) {
+      _ArchiveType.zip => name.toLowerCase().endsWith('.cbz') ? '.cbz' : '.zip',
+      _ArchiveType.tar => '.tar',
+      _ArchiveType.tarGzip =>
+        name.toLowerCase().endsWith('.tgz') ? '.tgz' : '.tar.gz',
+      _ArchiveType.tarBzip2 => name.toLowerCase().endsWith('.tbz2')
+          ? '.tbz2'
+          : name.toLowerCase().endsWith('.tbz')
+              ? '.tbz'
+              : '.tar.bz2',
+      _ArchiveType.tarXz =>
+        name.toLowerCase().endsWith('.txz') ? '.txz' : '.tar.xz',
+      _ArchiveType.sevenZip => '.7z',
+      _ArchiveType.rar => '.rar',
+      _ArchiveType.gzipFile => '.gz',
+      _ArchiveType.bzip2File => '.bz2',
+      _ArchiveType.xzFile => '.xz',
+    };
+    final baseName = name.substring(0, name.length - suffix.length);
+    return baseName.isEmpty ? 'archive' : baseName;
+  }
+
+  Future<String> _extractWithArchiveTool(
+    String archivePath,
+    _ArchiveType type,
+  ) async {
+    final sevenZip = await findSevenZipExecutable();
+    final winRar = type == _ArchiveType.rar
+        ? await findWinRarExecutable()
+        : null;
+    final executable = winRar ?? sevenZip;
+    if (executable == null) {
+      throw UnsupportedError(
+        '${type == _ArchiveType.rar ? 'WinRAR or 7-Zip' : '7-Zip'} is required '
+        'to extract this format.',
+      );
+    }
+
+    final parent = Directory(p.dirname(archivePath));
+    final staging = await parent.createTemp('.korun-extract-');
+    try {
+      final arguments = executable == winRar
+          ? ['x', '-y', archivePath, '${staging.path}${p.separator}']
+          : ['x', archivePath, '-o${staging.path}', '-y', '-spf-'];
+      final result = await Process.run(
+        executable,
+        arguments,
+        workingDirectory: parent.path,
+      );
+      if (result.exitCode != 0) {
+        throw FileSystemException(
+          'Archive tool failed: ${result.stderr}',
+          archivePath,
+        );
+      }
+      var hasEntries = false;
+      await for (final entry in staging.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        hasEntries = true;
+        if (entry is Link) {
+          throw FormatException(
+            'Symbolic links are not allowed in extracted archives.',
+          );
+        }
+      }
+      if (!hasEntries) {
+        throw FormatException('The archive contains no extractable files.');
+      }
+      final outputPath =
+          await _availableExtractionPath(parent.path, _archiveBaseName(
+        archivePath,
+        type,
+      ));
+      await staging.rename(outputPath);
+      return outputPath;
+    } catch (_) {
+      if (await staging.exists()) await staging.delete(recursive: true);
+      rethrow;
+    }
+  }
+
+  Future<String> _extractCompressedFile(
+    String archivePath,
+    _ArchiveType type,
+  ) async {
+    final compressed = await File(archivePath).readAsBytes();
+    final contents = switch (type) {
+      _ArchiveType.gzipFile => GZipDecoder().decodeBytes(compressed),
+      _ArchiveType.bzip2File => BZip2Decoder().decodeBytes(compressed),
+      _ArchiveType.xzFile => XZDecoder().decodeBytes(compressed),
+      _ => throw ArgumentError.value(type, 'type', 'Not a standalone codec'),
+    };
+    final parentPath = p.dirname(archivePath);
+    final baseName = _archiveBaseName(archivePath, type);
+    var outputPath = p.join(parentPath, baseName);
+    var suffix = 1;
+    while (true) {
+      final output = File(outputPath);
+      try {
+        await output.create(exclusive: true);
+        try {
+          await output.writeAsBytes(contents, flush: true);
+          return outputPath;
+        } catch (_) {
+          if (await output.exists()) await output.delete();
+          rethrow;
+        }
+      } on FileSystemException {
+        if (await FileSystemEntity.type(outputPath, followLinks: false) ==
+            FileSystemEntityType.notFound) {
+          rethrow;
+        }
+        outputPath = p.join(parentPath, '$baseName ($suffix)');
+        suffix++;
+      }
+    }
   }
 
   Future<String> _availableExtractionPath(

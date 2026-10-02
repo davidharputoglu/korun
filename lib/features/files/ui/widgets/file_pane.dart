@@ -120,7 +120,24 @@ class _FilePaneState extends State<FilePane> {
         PopupMenuItem(value: 'delete', child: Text(tr(context, 'delete'))),
         const PopupMenuDivider(),
         PopupMenuItem(value: 'compress', child: Text(tr(context, 'compress'))),
-        if (!entry.isDir && entry.extension == '.zip')
+        if (!entry.isDir &&
+            const {
+              '.zip',
+              '.cbz',
+              '.tar',
+              '.tar.gz',
+              '.tgz',
+              '.tar.bz2',
+              '.tbz',
+              '.tbz2',
+              '.tar.xz',
+              '.txz',
+              '.7z',
+              '.rar',
+              '.gz',
+              '.bz2',
+              '.xz',
+            }.any(entry.path.toLowerCase().endsWith))
           PopupMenuItem(value: 'extract', child: Text(tr(context, 'extract_here'))),
         const PopupMenuDivider(),
         PopupMenuItem(value: 'newfolder', child: Text(tr(context, 'new_folder'))),

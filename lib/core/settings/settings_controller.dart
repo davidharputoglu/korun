@@ -36,6 +36,8 @@ class SettingsController extends ChangeNotifier {
   bool _showLeftPreview = true;
   bool _showRightPreview = true;
   bool _otkenEnabled = true;
+  bool _showFirstUseGuide = true;
+  bool _isLoaded = false;
 
   AppThemeMode get mode => _mode;
   Color get accent => _accent;
@@ -46,6 +48,8 @@ class SettingsController extends ChangeNotifier {
   bool get showLeftPreview => _showLeftPreview;
   bool get showRightPreview => _showRightPreview;
   bool get otkenEnabled => _otkenEnabled;
+  bool get showFirstUseGuide => _showFirstUseGuide;
+  bool get isLoaded => _isLoaded;
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
@@ -60,6 +64,8 @@ class SettingsController extends ChangeNotifier {
     _showLeftPreview = p.getBool('showLeftPreview') ?? showPreviews;
     _showRightPreview = p.getBool('showRightPreview') ?? showPreviews;
     _otkenEnabled = p.getBool('otkenEnabled') ?? true;
+    _showFirstUseGuide = p.getBool('showFirstUseGuide') ?? true;
+    _isLoaded = true;
     notifyListeners();
   }
 
@@ -106,6 +112,11 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
     await _persist();
   }
+  Future<void> setShowFirstUseGuide(bool value) async {
+    _showFirstUseGuide = value;
+    notifyListeners();
+    await _persist();
+  }
 
   Future<void> _apply({required String id, required Color color, required AppThemeMode mode}) async {
     _activeThemeId = id; _accent = color; _mode = mode;
@@ -124,6 +135,7 @@ class SettingsController extends ChangeNotifier {
     await p.setBool('showLeftPreview', _showLeftPreview);
     await p.setBool('showRightPreview', _showRightPreview);
     await p.setBool('otkenEnabled', _otkenEnabled);
+    await p.setBool('showFirstUseGuide', _showFirstUseGuide);
   }
 
   ThemeData buildTheme() {

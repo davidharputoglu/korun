@@ -139,7 +139,7 @@ Map<String, Object> _archivePreviewInBackground(String path) {
     }
     final lower = path.toLowerCase();
     Archive? archive;
-    if (lower.endsWith('.zip')) {
+    if (lower.endsWith('.zip') || lower.endsWith('.cbz')) {
       input = InputFileStream(path);
       archive = ZipDecoder().decodeStream(input);
     } else if (lower.endsWith('.tar')) {
